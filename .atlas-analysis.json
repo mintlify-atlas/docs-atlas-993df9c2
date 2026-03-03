@@ -1,0 +1,96 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "ty",
+  "projectDescription": "An extremely fast Python type checker and language server, written in Rust.",
+  "theme": "aspen",
+  "primaryColor": "#d7ff64",
+  "lightColor": "#6340ac",
+  "darkColor": "#261230",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/type-checking",
+              "guides/editor-integration",
+              "guides/configuration",
+              "guides/suppression"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/type-system",
+              "concepts/diagnostics",
+              "concepts/language-server",
+              "concepts/modules",
+              "concepts/python-version",
+              "concepts/file-exclusions",
+              "concepts/rules"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "CLI",
+            "pages": [
+              "reference/cli/check",
+              "reference/cli/server",
+              "reference/cli/version"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "reference/configuration",
+              "reference/editor-settings",
+              "reference/environment"
+            ]
+          },
+          {
+            "group": "Rules",
+            "pages": [
+              "reference/rules"
+            ]
+          },
+          {
+            "group": "Other",
+            "pages": [
+              "reference/typing-faq",
+              "reference/exit-codes"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "10x-100x faster type checking than mypy and Pyright",
+    "Comprehensive diagnostics with rich contextual information",
+    "Language server with code navigation, completions, and code actions",
+    "Fine-grained incremental analysis for fast IDE updates",
+    "Advanced type system with intersection types and type narrowing",
+    "Configurable rule levels with per-file overrides",
+    "Support for redeclarations and partially typed code",
+    "Editor integrations for VS Code, PyCharm, Neovim and more"
+  ],
+  "publicApiSurface": [
+    "ty check - Check a project for type errors",
+    "ty server - Start the language server",
+    "ty version - Display ty's version"
+  ]
+}
