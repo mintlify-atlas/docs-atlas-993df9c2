@@ -250,6 +250,6 @@ We prefer extending the type system with well-specified features rather than rel
 
 This type represents "all possible lists of any element type" (as opposed to `list[Unknown]`, which represents "a list of some unknown element type"). It usually arises from a check such as `if isinstance(x, list):`. If `x` was previously of type `Item | list[Item]`, you might expect this check to narrow the type to `list[Item]`, but ty respects the possibility that there could be a common subclass of both `Item` and `list` (which may not be a list of `Item`!), and so the narrowed type is instead `(Item & Top[list[Unknown]]) | list[Item]`. This code can be made more robust by instead checking `if instance(x, Item)`, or by declaring the `Item` type as `@typing.final`.
 
-See also the [discussion here](https://docs.astral.sh/ty/features/type-system/#top-and-bottom-materializations) and [in this issue](https://github.com/astral-sh/ty/issues/1578).
+See also the [discussion here](/concepts/type-system#top-and-bottom-materializations) and [in this issue](https://github.com/astral-sh/ty/issues/1578).
 
 </Accordion>

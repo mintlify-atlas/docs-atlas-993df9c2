@@ -1,0 +1,74 @@
+---
+title: ty generate-shell-completion
+description: Generate shell completion scripts for ty
+---
+
+The `ty generate-shell-completion` command generates shell completion scripts for ty, enabling tab completion of ty commands and options in your shell.
+
+## Usage
+
+```bash
+ty generate-shell-completion <SHELL>
+```
+
+## Arguments
+
+<ParamField path="SHELL" type="string" required>
+  The shell for which to generate completions.
+  
+  Supported shells:
+  - `bash`
+  - `zsh`
+  - `fish`
+  - `elvish`
+  - `powershell`
+</ParamField>
+
+## Examples
+
+### Bash
+
+Add to your `~/.bashrc`:
+
+```bash
+eval "$(ty generate-shell-completion bash)"
+```
+
+### Zsh
+
+Add to your `~/.zshrc`:
+
+```bash
+eval "$(ty generate-shell-completion zsh)"
+```
+
+### Fish
+
+Save to Fish completions directory:
+
+```bash
+ty generate-shell-completion fish | source > ~/.config/fish/completions/ty.fish
+```
+
+### Elvish
+
+Add to your `~/.elvish/rc.elv`:
+
+```bash
+eval (ty generate-shell-completion elvish | slurp)
+```
+
+### PowerShell
+
+Add to your PowerShell profile:
+
+```powershell
+if (!(Test-Path -Path $PROFILE)) {
+  New-Item -ItemType File -Path $PROFILE -Force
+}
+Add-Content -Path $PROFILE -Value '(& ty generate-shell-completion powershell) | Out-String | Invoke-Expression'
+```
+
+## See also
+
+- [Installation guide](/installation#shell-autocompletion) - Detailed shell completion setup instructions

@@ -62,7 +62,8 @@
             "pages": [
               "reference/cli/check",
               "reference/cli/server",
-              "reference/cli/version"
+              "reference/cli/version",
+              "reference/cli/generate-shell-completion"
             ]
           },
           {
