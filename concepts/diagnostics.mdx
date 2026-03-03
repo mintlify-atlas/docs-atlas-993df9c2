@@ -1,0 +1,86 @@
+---
+title: Diagnostics
+description: Comprehensive diagnostics with source code snippets, annotations, and helpful explanations
+---
+
+ty provides detailed diagnostics that include snippets of your source code, annotations, and helpful explanations. Many diagnostics also provide suggestions on how to fix the reported issues.
+
+## Example: Typed dictionaries
+
+### Invalid assignment
+
+When ty detects an invalid assignment to a `TypedDict` key, the diagnostic includes both the context around the error and the reference to the key in the `TypedDict` definition:
+
+![TypedDict invalid-assignment diagnostic](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/diagnostics1.dark.png#only-dark)
+![TypedDict invalid-assignment diagnostic](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/diagnostics1.light.png#only-light)
+
+The diagnostic clearly shows:
+- The line where the invalid assignment occurs
+- The expected type based on the `TypedDict` definition
+- The actual type being assigned
+- Context from both the error location and the definition
+
+### Misspelled key
+
+When a `TypedDict` key is misspelled, ty suggests the correct spelling:
+
+![TypedDict misspelled-key diagnostic](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/diagnostics2.dark.png#only-dark)
+![TypedDict misspelled-key diagnostic](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/diagnostics2.light.png#only-light)
+
+<Tip>
+If you're using an editor with language server support, you can apply this suggestion as a quick fix directly in your editor.
+</Tip>
+
+## Example: Invalid arguments
+
+When there's a type mismatch in function arguments, ty provides context from both the call site and the function definition:
+
+![Invalid arguments diagnostic](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/diagnostics3.dark.png#only-dark)
+![Invalid arguments diagnostic](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/diagnostics3.light.png#only-light)
+
+In this example:
+- A file has been opened for writing in text mode
+- The code attempts to write bytes to it
+- ty shows the type mismatch and includes the parameter definition from the `write` method
+
+## Example: Backwards compatibility
+
+ty provides context-aware diagnostics that explain *why* something isn't available:
+
+![Missing import diagnostic](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/diagnostics4.dark.png#only-dark)
+![Missing import diagnostic](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/diagnostics4.light.png#only-light)
+
+Instead of just reporting that `tomllib` cannot be found, ty explains that it's not available because your project is targeting Python 3.10, but `tomllib` was only added in Python 3.11.
+
+<Info>
+This helps you understand whether you need to update your Python version requirement or use a different approach for compatibility.
+</Info>
+
+## Diagnostic features
+
+### Source code snippets
+
+All diagnostics include relevant source code snippets with line numbers and highlighting to help you quickly locate and understand the issue.
+
+### Multiple locations
+
+When relevant, ty shows multiple locations in your code:
+- The error location
+- Related definitions
+- Type annotations
+- Previous declarations
+
+### Helpful explanations
+
+Diagnostics include clear explanations of what went wrong and why it's a problem. ty aims to make error messages understandable even for developers who are new to static typing.
+
+### Quick fixes
+
+Many diagnostics come with suggested fixes that can be applied automatically in editors with language server support. This includes:
+- Correcting misspelled identifiers
+- Adding missing imports
+- Removing unused suppression comments
+
+<Note>
+See the [language server documentation](/concepts/language-server) for more information on editor integration and quick fixes.
+</Note>

@@ -1,0 +1,404 @@
+---
+title: ty check
+description: Check a Python project for type errors with ty's blazing fast type checker
+---
+
+The `ty check` command analyzes your Python code for type errors. It's designed to be 10-100x faster than mypy and Pyright while providing comprehensive diagnostics.
+
+## Usage
+
+```bash
+ty check [OPTIONS] [PATHS]...
+```
+
+## Arguments
+
+<ParamField path="PATHS" type="string[]">
+  List of files or directories to check. If not specified, ty will check the entire project starting from the project root.
+  
+  ```bash
+  # Check the entire project
+  ty check
+  
+  # Check specific files
+  ty check src/main.py tests/test_app.py
+  
+  # Check a directory
+  ty check src/
+  ```
+</ParamField>
+
+## Options
+
+### Configuration
+
+<ParamField path="--config" type="string">
+  A TOML `<KEY> = <VALUE>` pair (such as you might find in a `ty.toml` configuration file) overriding a specific configuration option.
+  
+  Overrides of individual settings using this option always take precedence over all configuration files.
+  
+  Short flag: `-c`
+  
+  ```bash
+  ty check --config "python-version = '3.11'"
+  ```
+</ParamField>
+
+<ParamField path="--config-file" type="path">
+  The path to a `ty.toml` file to use for configuration.
+  
+  While ty configuration can be included in a `pyproject.toml` file, it is not allowed in this context.
+  
+  May also be set with the `TY_CONFIG_FILE` environment variable.
+  
+  ```bash
+  ty check --config-file custom-ty.toml
+  ```
+</ParamField>
+
+<ParamField path="--project" type="path">
+  Run the command within the given project directory.
+  
+  All `pyproject.toml` files will be discovered by walking up the directory tree from the given project directory, as will the project's virtual environment (`.venv`) unless the `venv-path` option is set.
+  
+  Other command-line arguments (such as relative paths) will be resolved relative to the current working directory.
+  
+  ```bash
+  ty check --project /path/to/project
+  ```
+</ParamField>
+
+### Python environment
+
+<ParamField path="--python" type="path">
+  Path to your project's Python environment or interpreter.
+  
+  ty uses your Python environment to resolve third-party imports in your code.
+  
+  This can be a path to:
+  - A Python interpreter, e.g. `.venv/bin/python3`
+  - A virtual environment directory, e.g. `.venv`
+  - A system Python `sys.prefix` directory, e.g. `/usr`
+  
+  If you're using a project management tool such as uv or you have an activated Conda or virtual environment, you should not generally need to specify this option.
+  
+  Aliases: `--venv`
+  
+  ```bash
+  ty check --python .venv
+  ty check --venv .venv/bin/python3
+  ```
+</ParamField>
+
+<ParamField path="--python-version" type="string">
+  Python version to assume when resolving types.
+  
+  The Python version affects allowed syntax, type definitions of the standard library, and type definitions of first- and third-party modules that are conditional on the Python version.
+  
+  If a version is not specified on the command line or in a configuration file, ty will try the following techniques in order of preference to determine a value:
+  1. Check for the `project.requires-python` setting in a `pyproject.toml` file and use the minimum version from the specified range
+  2. Check for an activated or configured Python environment and attempt to infer the Python version of that environment
+  3. Fall back to the latest stable Python version supported by ty
+  
+  Aliases: `--target-version`
+  
+  Possible values: `3.7`, `3.8`, `3.9`, `3.10`, `3.11`, `3.12`, `3.13`, `3.14`, `3.15`
+  
+  ```bash
+  ty check --python-version 3.11
+  ```
+</ParamField>
+
+<ParamField path="--python-platform" type="string">
+  Target platform to assume when resolving types.
+  
+  This is used to specialize the type of `sys.platform` and will affect the visibility of platform-specific functions and attributes. If the value is set to `all`, no assumptions are made about the target platform. If unspecified, the current system's platform will be used.
+  
+  Aliases: `--platform`
+  
+  ```bash
+  ty check --python-platform linux
+  ty check --platform darwin
+  ```
+</ParamField>
+
+### Module resolution
+
+<ParamField path="--extra-search-path" type="path">
+  Additional path to use as a module-resolution source (can be passed multiple times).
+  
+  This is an advanced option that should usually only be used for first-party or third-party modules that are not installed into your Python environment in a conventional way. Use `--python` to point ty to your Python environment if it is in an unusual location.
+  
+  ```bash
+  ty check --extra-search-path src/vendor
+  ```
+</ParamField>
+
+<ParamField path="--typeshed" type="path">
+  Custom directory to use for stdlib typeshed stubs.
+  
+  Aliases: `--custom-typeshed-dir`
+  
+  ```bash
+  ty check --typeshed /path/to/custom/typeshed
+  ```
+</ParamField>
+
+### File exclusion
+
+<ParamField path="--exclude" type="string">
+  Glob patterns for files to exclude from type checking.
+  
+  Uses gitignore-style syntax to exclude files and directories from type checking. Supports patterns like `tests/`, `*.tmp`, `**/__pycache__/**`.
+  
+  ```bash
+  ty check --exclude "tests/**" --exclude "*.tmp"
+  ```
+</ParamField>
+
+<ParamField path="--force-exclude" type="boolean">
+  Enforce exclusions, even for paths passed to ty directly on the command-line.
+  
+  Use `--no-force-exclude` to disable.
+  
+  ```bash
+  ty check --force-exclude
+  ```
+</ParamField>
+
+<ParamField path="--respect-ignore-files" type="boolean">
+  Respect file exclusions via `.gitignore` and other standard ignore files.
+  
+  Use `--no-respect-ignore-files` to disable.
+  
+  ```bash
+  ty check --respect-ignore-files
+  ```
+</ParamField>
+
+### Rule configuration
+
+<ParamField path="--error" type="string">
+  Treat the given rule as having severity 'error'. Can be specified multiple times. Use 'all' to apply to all rules.
+  
+  ```bash
+  ty check --error reportUnknownVariableType
+  ty check --error all
+  ```
+</ParamField>
+
+<ParamField path="--warn" type="string">
+  Treat the given rule as having severity 'warn'. Can be specified multiple times. Use 'all' to apply to all rules.
+  
+  ```bash
+  ty check --warn reportUnknownArgumentType
+  ```
+</ParamField>
+
+<ParamField path="--ignore" type="string">
+  Disables the rule. Can be specified multiple times. Use 'all' to apply to all rules.
+  
+  ```bash
+  ty check --ignore reportUnusedImport
+  ```
+</ParamField>
+
+### Output format
+
+<ParamField path="--output-format" type="string">
+  The format to use for printing diagnostic messages.
+  
+  May also be set with the `TY_OUTPUT_FORMAT` environment variable.
+  
+  **Possible values:**
+  - `full` - Print diagnostics verbosely, with context and helpful hints (default)
+  - `concise` - Print diagnostics concisely, one per line
+  - `gitlab` - Print diagnostics in the JSON format expected by GitLab Code Quality reports
+  - `github` - Print diagnostics in the format used by GitHub Actions workflow error annotations
+  - `junit` - Print diagnostics as a JUnit-style XML report
+  
+  ```bash
+  ty check --output-format concise
+  ty check --output-format github
+  ```
+</ParamField>
+
+<ParamField path="--color" type="string">
+  Control when colored output is used.
+  
+  **Possible values:**
+  - `auto` - Display colors if the output goes to an interactive terminal
+  - `always` - Always display colors
+  - `never` - Never display colors
+  
+  ```bash
+  ty check --color always
+  ```
+</ParamField>
+
+### Exit behavior
+
+<ParamField path="--error-on-warning" type="boolean">
+  Use exit code 1 if there are any warning-level diagnostics.
+  
+  ```bash
+  ty check --error-on-warning
+  ```
+</ParamField>
+
+<ParamField path="--exit-zero" type="boolean">
+  Always use exit code 0, even when there are error-level diagnostics.
+  
+  ```bash
+  ty check --exit-zero
+  ```
+</ParamField>
+
+### Code modification
+
+<ParamField path="--add-ignore" type="boolean">
+  Adds `ty: ignore` comments to suppress all rule diagnostics.
+  
+  ```bash
+  ty check --add-ignore
+  ```
+</ParamField>
+
+### Watch mode
+
+<ParamField path="--watch" type="boolean">
+  Watch files for changes and recheck files related to the changed files.
+  
+  Short flag: `-W`
+  
+  ```bash
+  ty check --watch
+  ty check -W
+  ```
+</ParamField>
+
+### Output control
+
+<ParamField path="--verbose" type="boolean">
+  Use verbose output. Use `-vv` and `-vvv` for more verbose output.
+  
+  Short flag: `-v`
+  
+  ```bash
+  ty check -v
+  ty check -vvv
+  ```
+</ParamField>
+
+<ParamField path="--quiet" type="boolean">
+  Use quiet output. Use `-qq` for silent output.
+  
+  Short flag: `-q`
+  
+  ```bash
+  ty check -q
+  ty check -qq
+  ```
+</ParamField>
+
+<ParamField path="--no-progress" type="boolean">
+  Hide all progress outputs.
+  
+  For example, spinners or progress bars.
+  
+  ```bash
+  ty check --no-progress
+  ```
+</ParamField>
+
+<ParamField path="--help" type="boolean">
+  Print help information. Use `-h` for a summary.
+  
+  Short flag: `-h`
+  
+  ```bash
+  ty check --help
+  ```
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Basic usage
+# Check the entire project
+ty check
+
+# Check specific files
+ty check src/main.py src/utils.py
+
+# Check a directory
+ty check src/
+```
+
+```bash With configuration
+# Use a specific Python version
+ty check --python-version 3.11
+
+# Use a custom config file
+ty check --config-file custom-ty.toml
+
+# Override config with inline options
+ty check --config "python-version = '3.12'"
+```
+
+```bash Watch mode
+# Watch for changes and recheck automatically
+ty check --watch
+
+# Watch with verbose output
+ty check --watch --verbose
+```
+
+```bash CI/CD integration
+# GitHub Actions format
+ty check --output-format github
+
+# GitLab CI format
+ty check --output-format gitlab
+
+# JUnit XML report
+ty check --output-format junit > report.xml
+```
+
+```bash Rule configuration
+# Treat specific rules as errors
+ty check --error reportUnknownVariableType
+
+# Ignore specific rules
+ty check --ignore reportUnusedImport
+
+# Treat warnings as errors
+ty check --error-on-warning
+```
+
+```bash Custom environment
+# Use a specific virtual environment
+ty check --python .venv
+
+# Add custom module search paths
+ty check --extra-search-path vendor/
+
+# Target a specific platform
+ty check --python-platform linux
+```
+
+</CodeGroup>
+
+## Exit codes
+
+The `ty check` command uses the following exit codes:
+
+- `0` - No errors found (or `--exit-zero` was used)
+- `1` - Type errors found, or warnings found with `--error-on-warning`
+- `2` - Command-line usage error
+
+## Environment variables
+
+- `TY_CONFIG_FILE` - Path to configuration file (can be overridden with `--config-file`)
+- `TY_OUTPUT_FORMAT` - Output format (can be overridden with `--output-format`)

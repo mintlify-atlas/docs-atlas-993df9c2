@@ -1,0 +1,182 @@
+---
+title: Rules
+description: Configure rule levels to control which checks ty performs on your code
+---
+
+Rules are individual checks that ty performs to detect common issues in your code, such as incompatible assignments, missing imports, or invalid type annotations. Each rule focuses on a specific pattern and can be turned on or off depending on your project's needs.
+
+<Tip>
+See the [rules reference](/reference/rules) for an enumeration of all supported rules.
+</Tip>
+
+## Rule levels
+
+Each rule has a configurable level that determines how violations are reported:
+
+### error
+
+Violations are reported as errors. ty exits with an exit code of 1 if there are any errors.
+
+### warn
+
+Violations are reported as warnings. By default, ty exits with an exit code of 0 if there are only warnings. Use `--error-on-warning` to exit with code 1 when warnings are present.
+
+### ignore
+
+The rule is turned off completely and violations are not reported.
+
+## Configuring rule levels
+
+### Command-line flags
+
+You can configure rule levels using the `--warn`, `--error`, and `--ignore` flags:
+
+```bash
+ty check \
+  --warn unused-ignore-comment \        # Make unused-ignore-comment a warning
+  --ignore redundant-cast \             # Disable redundant-cast
+  --error possibly-missing-attribute \  # Error on possibly-missing-attribute
+  --error possibly-missing-import       # Error on possibly-missing-import
+```
+
+<Note>
+Flags can be repeated, and subsequent options override earlier ones. This allows you to build up complex rule configurations on the command line.
+</Note>
+
+### Configuration files
+
+Rule levels can also be configured in the `rules` section of your configuration file:
+
+```toml title="pyproject.toml"
+[tool.ty.rules]
+unused-ignore-comment = "warn"
+redundant-cast = "ignore"
+possibly-missing-attribute = "error"
+possibly-missing-import = "error"
+```
+
+Or in a standalone `ty.toml`:
+
+```toml title="ty.toml"
+[rules]
+unused-ignore-comment = "warn"
+redundant-cast = "ignore"
+possibly-missing-attribute = "error"
+possibly-missing-import = "error"
+```
+
+<Info>
+Command-line flags take precedence over configuration file settings, allowing you to override your configuration for specific runs.
+</Info>
+
+## Configuring all rules at once
+
+You can set the level for all rules at once using the `all` option.
+
+### Command line
+
+```bash
+# Set all rules to error
+ty check --error all
+
+# Set all rules to warn
+ty check --warn all
+
+# Disable all rules
+ty check --ignore all
+```
+
+### Configuration file
+
+```toml title="pyproject.toml"
+[tool.ty.rules]
+all = "error"
+```
+
+<Tip>
+You can combine the `all` option with specific rule overrides. For example, set all rules to error except for specific ones you want to ignore or downgrade to warnings.
+</Tip>
+
+## Common rule configurations
+
+### Strict configuration
+
+Treat all issues as errors:
+
+```toml title="pyproject.toml"
+[tool.ty.rules]
+all = "error"
+```
+
+### Gradual adoption
+
+Start with warnings for most rules while enforcing critical checks:
+
+```toml title="pyproject.toml"
+[tool.ty.rules]
+all = "warn"
+invalid-assignment = "error"
+invalid-argument-type = "error"
+unresolved-import = "error"
+```
+
+### Selective checking
+
+Disable most rules but enable specific checks:
+
+```toml title="pyproject.toml"
+[tool.ty.rules]
+all = "ignore"
+invalid-assignment = "error"
+invalid-argument-type = "error"
+```
+
+### CI vs local development
+
+You can use different configurations for CI and local development:
+
+<CodeGroup>
+
+```toml pyproject.toml
+# Relaxed rules for local development
+[tool.ty.rules]
+all = "warn"
+```
+
+```bash CI
+# Strict rules in CI
+ty check --error all
+```
+
+</CodeGroup>
+
+## Rule precedence
+
+When the same rule is configured in multiple places, the following precedence applies (highest to lowest):
+
+1. **Command-line flags** (e.g., `--error invalid-assignment`)
+2. **Configuration file** (e.g., `pyproject.toml` or `ty.toml`)
+3. **Default level** (specified by ty for each rule)
+
+<Note>
+Later command-line flags override earlier ones, so `ty check --warn all --error invalid-assignment` will make all rules warnings except `invalid-assignment`, which will be an error.
+</Note>
+
+## Error on warning
+
+By default, ty exits with code 0 if there are only warnings. To treat warnings as errors for CI purposes:
+
+```bash
+ty check --error-on-warning
+```
+
+Or in configuration:
+
+```toml title="pyproject.toml"
+[tool.ty]
+error-on-warning = true
+```
+
+<Tip>
+This is useful in CI pipelines where you want to fail the build on any type issues, even if they're only configured as warnings.
+</Tip>

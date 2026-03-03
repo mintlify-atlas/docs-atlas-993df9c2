@@ -1,0 +1,140 @@
+---
+title: Configuration
+description: Configure ty using ty.toml or pyproject.toml files
+---
+
+ty supports persistent configuration files at both the project and user level.
+
+## Configuration files
+
+ty will search for a `pyproject.toml` or `ty.toml` file in the current directory, or in the nearest parent directory.
+
+<Tabs>
+  <Tab title="pyproject.toml">
+    If a `pyproject.toml` file is found, ty will read configuration from the `[tool.ty]` table.
+
+    ```toml pyproject.toml
+    [tool.ty.rules]
+    index-out-of-bounds = "ignore"
+    ```
+
+    <Note>
+    If there is no `tool.ty` table, the `pyproject.toml` file will be ignored, and ty will continue searching in the directory hierarchy.
+    </Note>
+  </Tab>
+  
+  <Tab title="ty.toml">
+    ty will also search for `ty.toml` files, which follow an identical structure, but omit the `[tool.ty]` prefix.
+
+    ```toml ty.toml
+    [rules]
+    index-out-of-bounds = "ignore"
+    ```
+
+    <Warning>
+    `ty.toml` files take precedence over `pyproject.toml` files. If both `ty.toml` and `pyproject.toml` files are present in a directory, configuration will be read from `ty.toml`, and the `[tool.ty]` section in the accompanying `pyproject.toml` will be ignored.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## User-level configuration
+
+ty will also discover user-level configuration at:
+
+<CodeGroup>
+```bash macOS/Linux
+~/.config/ty/ty.toml
+# or
+$XDG_CONFIG_HOME/ty/ty.toml
+```
+
+```bash Windows
+%APPDATA%\ty\ty.toml
+```
+</CodeGroup>
+
+User-level configuration must use the `ty.toml` format, rather than the `pyproject.toml` format, as a `pyproject.toml` is intended to define a Python project.
+
+## Configuration precedence
+
+If project and user-level configuration files are found, the settings will be merged, with project-level configuration taking precedence over the user-level configuration.
+
+<Steps>
+  <Step title="Command line arguments">
+    Settings provided via command line take highest precedence.
+    
+    ```bash
+    ty check --python /path/to/python
+    ```
+  </Step>
+  
+  <Step title="Project-level configuration">
+    Settings in `ty.toml` or `pyproject.toml` in the project directory.
+  </Step>
+  
+  <Step title="User-level configuration">
+    Settings in `~/.config/ty/ty.toml` (or equivalent on Windows).
+  </Step>
+</Steps>
+
+### Merging behavior
+
+For example, if a string, number, or boolean is present in both the project and user-level configuration tables, the project-level value will be used, and the user-level value will be ignored.
+
+If an array is present in both tables, the arrays will be merged, with the project-level settings appearing later in the merged array.
+
+<Accordion title="Configuration merging example">
+  Given these configurations:
+
+  ```toml ~/.config/ty/ty.toml (user-level)
+  [rules]
+  index-out-of-bounds = "warn"
+  missing-return = "error"
+  
+  exclude = ["tests/"]
+  ```
+
+  ```toml ty.toml (project-level)
+  [rules]
+  index-out-of-bounds = "error"
+  
+  exclude = ["build/"]
+  ```
+
+  The merged configuration will be:
+  - `index-out-of-bounds`: `"error"` (project overrides user)
+  - `missing-return`: `"error"` (from user)
+  - `exclude`: `["tests/", "build/"]` (arrays merged)
+</Accordion>
+
+## Configuration reference
+
+See the [configuration reference](/reference/configuration) for an enumeration of all available settings.
+
+## Common configuration examples
+
+<CodeGroup>
+```toml Rule configuration
+[rules]
+index-out-of-bounds = "ignore"
+unsupported-operator = "warn"
+missing-argument = "error"
+```
+
+```toml Python version
+target-version = "py312"
+```
+
+```toml File exclusions
+exclude = [
+  "build/",
+  "dist/",
+  ".venv/",
+  "**/__pycache__/"
+]
+```
+
+```toml Custom Python path
+python = "/usr/local/bin/python3.12"
+```
+</CodeGroup>

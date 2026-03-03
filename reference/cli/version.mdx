@@ -1,0 +1,140 @@
+---
+title: ty version
+description: Display ty's version information in text or JSON format
+---
+
+The `ty version` command displays the current version of ty.
+
+## Usage
+
+```bash
+ty version [OPTIONS]
+```
+
+## Options
+
+<ParamField path="--output-format" type="string" default="text">
+  The format in which to display the version information.
+  
+  **Possible values:**
+  - `text` - Human-readable text format (default)
+  - `json` - Machine-readable JSON format
+  
+  ```bash
+  ty version --output-format json
+  ```
+</ParamField>
+
+<ParamField path="--help" type="boolean">
+  Print help information.
+  
+  Short flag: `-h`
+  
+  ```bash
+  ty version --help
+  ```
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Text format
+$ ty version
+ty 0.0.14
+```
+
+```bash JSON format
+$ ty version --output-format json
+{
+  "version": "0.0.14",
+  "commit": "a1b2c3d4e5f6g7h8i9j0",
+  "build_date": "2026-03-03"
+}
+```
+
+```bash Check in scripts
+# Check if ty is installed
+if command -v ty &> /dev/null; then
+  echo "ty is installed:"
+  ty version
+else
+  echo "ty is not installed"
+fi
+```
+
+```bash Version comparison
+# Get version in JSON and parse with jq
+ty version --output-format json | jq -r '.version'
+```
+
+</CodeGroup>
+
+## Output format
+
+### Text format
+
+The default text format displays the version in a simple, human-readable format:
+
+```
+ty 0.0.14
+```
+
+### JSON format
+
+The JSON format provides structured version information that can be parsed programmatically:
+
+```json
+{
+  "version": "0.0.14",
+  "commit": "a1b2c3d4e5f6g7h8i9j0",
+  "build_date": "2026-03-03"
+}
+```
+
+**Fields:**
+- `version` - The semantic version number
+- `commit` - The Git commit hash the binary was built from
+- `build_date` - The date the binary was built
+
+## Version policy
+
+ty uses `0.0.x` versioning. ty does not yet have a stable API; breaking changes, including changes to diagnostics, may occur between any two versions.
+
+For more information about ty's versioning, see the [version policy](https://github.com/astral-sh/ty#version-policy) in the README.
+
+## Use cases
+
+### CI/CD pipelines
+
+Verify the ty version in your CI/CD pipeline:
+
+```yaml
+steps:
+  - name: Check ty version
+    run: ty version --output-format json | jq -r '.version'
+```
+
+### Bug reports
+
+When reporting bugs, include the output of `ty version` to help maintainers reproduce the issue:
+
+```bash
+ty version --output-format json
+```
+
+### Version pinning
+
+Check the installed version matches your requirements:
+
+```bash
+REQUIRED_VERSION="0.0.14"
+INSTALLED_VERSION=$(ty version --output-format json | jq -r '.version')
+
+if [ "$INSTALLED_VERSION" != "$REQUIRED_VERSION" ]; then
+  echo "Error: ty version mismatch"
+  echo "Required: $REQUIRED_VERSION"
+  echo "Installed: $INSTALLED_VERSION"
+  exit 1
+fi
+```

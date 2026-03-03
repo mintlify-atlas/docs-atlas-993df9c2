@@ -1,0 +1,100 @@
+---
+title: Type checking
+description: Learn how to type check your Python projects with ty
+---
+
+After installing ty, you can start type checking your Python code.
+
+## Running the type checker
+
+To run the type checker, use the `check` command:
+
+```bash
+ty check
+```
+
+<Note>
+If you're in a project, you may need to use `uv run` or activate your virtual environment first for ty to find your dependencies.
+</Note>
+
+## Environment discovery
+
+The type checker needs to discover your installed packages in order to check your use of imported dependencies.
+
+ty will find installed packages in the active virtual environment (via `VIRTUAL_ENV`) or discover a virtual environment named `.venv` in the project root or working directory. Failing that, ty will look for a `python3` or `python` binary available in `PATH`.
+
+<Steps>
+  <Step title="Check for VIRTUAL_ENV">
+    ty first looks for an active virtual environment via the `VIRTUAL_ENV` environment variable.
+  </Step>
+  
+  <Step title="Discover .venv directory">
+    If no active environment is found, ty searches for a `.venv` directory in the project root or working directory.
+  </Step>
+  
+  <Step title="Fall back to system Python">
+    If no virtual environment is found, ty uses the `python3` or `python` binary in `PATH`.
+  </Step>
+  
+  <Step title="Use explicit Python path">
+    Alternatively, use the `--python` flag to specify a path to a Python interpreter:
+    
+    ```bash
+    ty check --python /path/to/python
+    ```
+  </Step>
+</Steps>
+
+See the [module discovery](/concepts/modules) documentation for details.
+
+## File selection
+
+ty will run on all Python files in the working directory (including subdirectories, recursively). If used from a project, ty will run on all Python files in the project (starting in the directory with the `pyproject.toml`).
+
+You can also provide specific paths to check:
+
+```bash
+ty check example.py
+```
+
+<CodeGroup>
+```bash Single file
+ty check example.py
+```
+
+```bash Multiple files
+ty check src/main.py tests/test_main.py
+```
+
+```bash Directory
+ty check src/
+```
+</CodeGroup>
+
+You can also persistently configure [included and excluded files](/concepts/file-exclusions).
+
+## Rule selection and severity
+
+ty's type checking diagnostics are often associated with a rule.
+
+ty's type checking rules can be configured to your project's needs. See the [rules](/reference/rules) documentation for details.
+
+You can also suppress specific violations of rules using [suppression comments](/guides/suppression).
+
+## Watch mode
+
+ty can be run in an incremental watch mode:
+
+```bash
+ty check --watch
+```
+
+ty will watch files for changes and recheck any affected files — including files that depend on the changed file. ty uses [fine-grained incrementality](/concepts/language-server#fine-grained-incrementality) to perform subsequent checks much faster than running `ty check` repeatedly.
+
+<Warning>
+Watch mode is designed for development workflows. For CI/CD pipelines, use the standard `ty check` command.
+</Warning>
+
+## The type system
+
+To learn more about what makes type checking in ty unique, read about the [type system](/concepts/type-system).

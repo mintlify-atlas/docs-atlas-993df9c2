@@ -1,0 +1,523 @@
+---
+title: Configuration
+description: Complete configuration reference for ty.toml and pyproject.toml
+---
+
+ty can be configured using either a `ty.toml` file or the `[tool.ty]` section in `pyproject.toml`. All configuration options are identical between the two formats.
+
+## Rules
+
+<ParamField path="rules" type="dict[RuleName | 'all', 'ignore' | 'warn' | 'error']" default="{...}">
+  Configures the enabled rules and their severity.
+
+  The keys are either rule names or `all` to set a default severity for all rules. See [the rules documentation](https://ty.dev/rules) for a list of all available rules.
+
+  Valid severities are:
+  - `ignore`: Disable the rule
+  - `warn`: Enable the rule and create a warning diagnostic
+  - `error`: Enable the rule and create an error diagnostic (ty will exit with a non-zero code)
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.rules]
+    possibly-unresolved-reference = "warn"
+    division-by-zero = "ignore"
+    ```
+
+    ```toml ty.toml
+    [rules]
+    possibly-unresolved-reference = "warn"
+    division-by-zero = "ignore"
+    ```
+  </Accordion>
+</ParamField>
+
+## Analysis
+
+<ParamField path="analysis.allowed-unresolved-imports" type="list[str]" default="[]">
+  A list of module glob patterns for which `unresolved-import` diagnostics should be suppressed.
+
+  Details on supported glob patterns:
+  - `*` matches zero or more characters except `.`. For example, `foo.*` matches `foo.bar` but not `foo.bar.baz`; `foo*` matches `foo` and `foobar` but not `foo.bar` or `barfoo`; and `*foo` matches `foo` and `barfoo` but not `foo.bar` or `foobar`
+  - `**` matches any number of module components (e.g., `foo.**` matches `foo`, `foo.bar`, etc.)
+  - Prefix a pattern with `!` to exclude matching modules
+
+  When multiple patterns match, later entries take precedence.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.analysis]
+    # Suppress errors for all `test` modules except `test.foo`
+    allowed-unresolved-imports = ["test.**", "!test.foo"]
+    ```
+
+    ```toml ty.toml
+    [analysis]
+    # Suppress errors for all `test` modules except `test.foo`
+    allowed-unresolved-imports = ["test.**", "!test.foo"]
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="analysis.replace-imports-with-any" type="list[str]" default="[]">
+  A list of module glob patterns whose imports should be replaced with `typing.Any`.
+
+  Unlike `allowed-unresolved-imports`, this setting replaces the module's type information with `typing.Any` even if the module can be resolved. Import diagnostics are unconditionally suppressed for matching modules.
+
+  When multiple patterns match, later entries take precedence.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.analysis]
+    # Replace all pandas and numpy imports with Any
+    replace-imports-with-any = ["pandas.**", "numpy.**"]
+    ```
+
+    ```toml ty.toml
+    [analysis]
+    # Replace all pandas and numpy imports with Any
+    replace-imports-with-any = ["pandas.**", "numpy.**"]
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="analysis.respect-type-ignore-comments" type="bool" default="true">
+  Whether ty should respect `type: ignore` comments.
+
+  When set to `false`, `type: ignore` comments are treated like any other normal comment and can't be used to suppress ty errors (you have to use `ty: ignore` instead).
+
+  Setting this option can be useful when using ty alongside other type checkers or when you prefer using `ty: ignore` over `type: ignore`.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.analysis]
+    # Disable support for `type: ignore` comments
+    respect-type-ignore-comments = false
+    ```
+
+    ```toml ty.toml
+    [analysis]
+    # Disable support for `type: ignore` comments
+    respect-type-ignore-comments = false
+    ```
+  </Accordion>
+</ParamField>
+
+## Environment
+
+<ParamField path="environment.extra-paths" type="list[str]" default="[]">
+  User-provided paths that should take first priority in module resolution.
+
+  This is an advanced option that should usually only be used for first-party or third-party modules that are not installed into your Python environment in a conventional way. Use the `python` option to specify the location of your Python environment.
+
+  This option is similar to mypy's `MYPYPATH` environment variable and pyright's `stubPath` configuration setting.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.environment]
+    extra-paths = ["./shared/my-search-path"]
+    ```
+
+    ```toml ty.toml
+    [environment]
+    extra-paths = ["./shared/my-search-path"]
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="environment.python" type="str" default="null">
+  Path to your project's Python environment or interpreter.
+
+  ty uses the `site-packages` directory of your project's Python environment to resolve third-party (and, in some cases, first-party) imports in your code.
+
+  This can be a path to:
+  - A Python interpreter, e.g. `.venv/bin/python3`
+  - A virtual environment directory, e.g. `.venv`
+  - A system Python `sys.prefix` directory, e.g. `/usr`
+
+  If you're using a project management tool such as uv, you should not generally need to specify this option, as commands such as `uv run` will set the `VIRTUAL_ENV` environment variable to point to your project's virtual environment. ty can also infer the location of your environment from an activated Conda environment, and will look for a `.venv` directory in the project root if none of the above apply.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.environment]
+    python = "./custom-venv-location/.venv"
+    ```
+
+    ```toml ty.toml
+    [environment]
+    python = "./custom-venv-location/.venv"
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="environment.python-platform" type="'win32' | 'darwin' | 'android' | 'ios' | 'linux' | 'all' | str" default="<current-platform>">
+  Specifies the target platform that will be used to analyze the source code.
+
+  If specified, ty will understand conditions based on comparisons with `sys.platform`, such as are commonly found in typeshed to reflect the differing contents of the standard library across platforms. If `all` is specified, ty will assume that the source code can run on any platform.
+
+  If no platform is specified, ty will use the current platform:
+  - `win32` for Windows
+  - `darwin` for macOS
+  - `android` for Android
+  - `ios` for iOS
+  - `linux` for everything else
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.environment]
+    # Tailor type stubs and conditionalized type definitions to windows
+    python-platform = "win32"
+    ```
+
+    ```toml ty.toml
+    [environment]
+    # Tailor type stubs and conditionalized type definitions to windows
+    python-platform = "win32"
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="environment.python-version" type="'3.7' | '3.8' | '3.9' | '3.10' | '3.11' | '3.12' | '3.13' | '3.14' | <major>.<minor>" default="'3.14'">
+  Specifies the version of Python that will be used to analyze the source code.
+
+  The version should be specified as a string in the format `M.m` where `M` is the major version and `m` is the minor (e.g. `"3.0"` or `"3.6"`). If a version is provided, ty will generate errors if the source code makes use of language features that are not supported in that version.
+
+  If a version is not specified, ty will try the following techniques in order of preference:
+  1. Check for the `project.requires-python` setting in a `pyproject.toml` file and use the minimum version from the specified range
+  2. Check for an activated or configured Python environment and attempt to infer the Python version of that environment
+  3. Fall back to the default value
+
+  For some language features, ty can also understand conditionals based on comparisons with `sys.version_info`. These are commonly found in typeshed, for example, to reflect the differing contents of the standard library across Python versions.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.environment]
+    python-version = "3.12"
+    ```
+
+    ```toml ty.toml
+    [environment]
+    python-version = "3.12"
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="environment.root" type="list[str]" default="null">
+  The root paths of the project, used for finding first-party modules.
+
+  Accepts a list of directory paths searched in priority order (first has highest priority).
+
+  If left unspecified, ty will try to detect common project layouts and initialize `root` accordingly. The project root (`.`) is always included. Additionally, the following directories are included if they exist and are not packages (i.e. they do not contain `__init__.py` or `__init__.pyi` files):
+  - `./src`
+  - `./<project-name>` (if a `./<project-name>/<project-name>` directory exists)
+  - `./python`
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.environment]
+    # Multiple directories (priority order)
+    root = ["./src", "./lib", "./vendor"]
+    ```
+
+    ```toml ty.toml
+    [environment]
+    # Multiple directories (priority order)
+    root = ["./src", "./lib", "./vendor"]
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="environment.typeshed" type="str" default="null">
+  Optional path to a "typeshed" directory on disk for us to use for standard-library types.
+
+  If this is not provided, we will fallback to our vendored typeshed stubs for the stdlib, bundled as a zip file in the binary.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.environment]
+    typeshed = "/path/to/custom/typeshed"
+    ```
+
+    ```toml ty.toml
+    [environment]
+    typeshed = "/path/to/custom/typeshed"
+    ```
+  </Accordion>
+</ParamField>
+
+## Overrides
+
+Configuration overrides that apply to specific files based on glob patterns.
+
+An override allows you to apply different rule configurations to specific files or directories. Multiple overrides can match the same file, with later overrides taking precedence. Override rules take precedence over global rules for matching files.
+
+<Accordion title="Example: Relax enforcement in test files">
+  ```toml pyproject.toml
+  [[tool.ty.overrides]]
+  include = ["tests/**", "**/test_*.py"]
+
+  [tool.ty.overrides.rules]
+  possibly-unresolved-reference = "warn"
+  ```
+
+  ```toml ty.toml
+  [[overrides]]
+  include = ["tests/**", "**/test_*.py"]
+
+  [overrides.rules]
+  possibly-unresolved-reference = "warn"
+  ```
+</Accordion>
+
+<Accordion title="Example: Ignore rule in generated files">
+  ```toml pyproject.toml
+  [[tool.ty.overrides]]
+  include = ["generated/**"]
+  exclude = ["generated/important.py"]
+
+  [tool.ty.overrides.rules]
+  possibly-unresolved-reference = "ignore"
+  ```
+
+  ```toml ty.toml
+  [[overrides]]
+  include = ["generated/**"]
+  exclude = ["generated/important.py"]
+
+  [overrides.rules]
+  possibly-unresolved-reference = "ignore"
+  ```
+</Accordion>
+
+<ParamField path="overrides.include" type="list[str]" default="null">
+  A list of file and directory patterns to include for this override.
+
+  The `include` option follows a similar syntax to `.gitignore` but reversed: Including a file or directory will make it so that it (and its contents) are affected by this override.
+
+  If not specified, defaults to `["**"]` (matches all files).
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [[tool.ty.overrides]]
+    include = ["src", "tests"]
+    ```
+
+    ```toml ty.toml
+    [[overrides]]
+    include = ["src", "tests"]
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="overrides.exclude" type="list[str]" default="null">
+  A list of file and directory patterns to exclude from this override.
+
+  Patterns follow a syntax similar to `.gitignore`. Exclude patterns take precedence over include patterns within the same override.
+
+  If not specified, defaults to `[]` (excludes no files).
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [[tool.ty.overrides]]
+    exclude = [
+      "generated",
+      "*.proto",
+      "tests/fixtures/**",
+      "!tests/fixtures/important.py"  # Include this one file
+    ]
+    ```
+
+    ```toml ty.toml
+    [[overrides]]
+    exclude = [
+      "generated",
+      "*.proto",
+      "tests/fixtures/**",
+      "!tests/fixtures/important.py"  # Include this one file
+    ]
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="overrides.rules" type="dict[RuleName | 'all', 'ignore' | 'warn' | 'error']" default="{...}">
+  Rule overrides for files matching the include/exclude patterns.
+
+  These rules will be merged with the global rules, with override rules taking precedence for matching files. You can set rules to different severity levels or disable them entirely.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [[tool.ty.overrides]]
+    include = ["src"]
+
+    [tool.ty.overrides.rules]
+    possibly-unresolved-reference = "ignore"
+    ```
+
+    ```toml ty.toml
+    [[overrides]]
+    include = ["src"]
+
+    [overrides.rules]
+    possibly-unresolved-reference = "ignore"
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="overrides.analysis" type="object">
+  Analysis options for files matching the override patterns.
+
+  Supports the same options as the top-level `analysis` configuration:
+  - `allowed-unresolved-imports`
+  - `replace-imports-with-any`
+  - `respect-type-ignore-comments`
+
+  See the [Analysis](#analysis) section for details on each option.
+</ParamField>
+
+## Source files
+
+<ParamField path="src.include" type="list[str]" default="null">
+  A list of files and directories to check.
+
+  The `include` option follows a similar syntax to `.gitignore` but reversed: Including a file or directory will make it so that it (and its contents) are type checked.
+
+  Supported patterns:
+  - `./src/` matches only a directory
+  - `./src` matches both files and directories
+  - `src` matches a file or directory named `src`
+  - `*` matches any (possibly empty) sequence of characters (except `/`)
+  - `**` matches zero or more path components
+  - `?` matches any single character except `/`
+  - `[abc]` matches any character inside the brackets
+
+  All paths are anchored relative to the project root. `exclude` takes precedence over `include`.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.src]
+    include = ["src", "tests"]
+    ```
+
+    ```toml ty.toml
+    [src]
+    include = ["src", "tests"]
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="src.exclude" type="list[str]" default="null">
+  A list of file and directory patterns to exclude from type checking.
+
+  Patterns follow a syntax similar to `.gitignore`. All paths are anchored relative to the project root (`src` only matches `<project_root>/src` and not `<project_root>/test/src`). To exclude any directory or file named `src`, use `**/src` instead.
+
+  By default, ty excludes commonly ignored directories:
+  - `**/.bzr/`, `**/.direnv/`, `**/.eggs/`, `**/.git/`, `**/.git-rewrite/`, `**/.hg/`
+  - `**/.mypy_cache/`, `**/.nox/`, `**/.pants.d/`, `**/.pytype/`, `**/.ruff_cache/`
+  - `**/.svn/`, `**/.tox/`, `**/.venv/`, `**/__pypackages__/`, `**/_build/`
+  - `**/buck-out/`, `**/dist/`, `**/node_modules/`, `**/venv/`
+
+  You can override any default exclude by using a negated pattern. For example, to re-include `dist` use `exclude = ["!dist"]`.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.src]
+    exclude = [
+      "generated",
+      "*.proto",
+      "tests/fixtures/**",
+      "!tests/fixtures/important.py"  # Include this one file
+    ]
+    ```
+
+    ```toml ty.toml
+    [src]
+    exclude = [
+      "generated",
+      "*.proto",
+      "tests/fixtures/**",
+      "!tests/fixtures/important.py"  # Include this one file
+    ]
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="src.respect-ignore-files" type="bool" default="true">
+  Whether to automatically exclude files that are ignored by `.ignore`, `.gitignore`, `.git/info/exclude`, and global `gitignore` files.
+
+  Enabled by default.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.src]
+    respect-ignore-files = false
+    ```
+
+    ```toml ty.toml
+    [src]
+    respect-ignore-files = false
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="src.root" type="str" default="null">
+  <Warning>Deprecated: Use `environment.root` instead.</Warning>
+
+  The root of the project, used for finding first-party modules.
+
+  If left unspecified, ty will try to detect common project layouts. The project root (`.`) is always included. Additionally, the following directories are included if they exist and are not packages:
+  - `./src`
+  - `./<project-name>` (if a `./<project-name>/<project-name>` directory exists)
+  - `./python`
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.src]
+    root = "./app"
+    ```
+
+    ```toml ty.toml
+    [src]
+    root = "./app"
+    ```
+  </Accordion>
+</ParamField>
+
+## Terminal output
+
+<ParamField path="terminal.error-on-warning" type="bool" default="false">
+  Use exit code 1 if there are any warning-level diagnostics.
+
+  Defaults to `false`.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.terminal]
+    # Error if ty emits any warning-level diagnostics
+    error-on-warning = true
+    ```
+
+    ```toml ty.toml
+    [terminal]
+    # Error if ty emits any warning-level diagnostics
+    error-on-warning = true
+    ```
+  </Accordion>
+</ParamField>
+
+<ParamField path="terminal.output-format" type="'full' | 'concise' | 'github' | 'gitlab' | 'junit'" default="'full'">
+  The format to use for printing diagnostic messages.
+
+  Defaults to `full`.
+
+  <Accordion title="Example">
+    ```toml pyproject.toml
+    [tool.ty.terminal]
+    output-format = "concise"
+    ```
+
+    ```toml ty.toml
+    [terminal]
+    output-format = "concise"
+    ```
+  </Accordion>
+</ParamField>

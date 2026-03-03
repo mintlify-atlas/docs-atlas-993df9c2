@@ -1,0 +1,83 @@
+---
+title: Exit codes
+description: ty command line exit codes reference
+---
+
+The ty command line interface uses the following exit codes:
+
+| Exit code | Description                                              |
+| :-------- | :------------------------------------------------------- |
+| `0`       | no violations with severity `error` or higher were found |
+| `1`       | violations with severity `error` or higher were found    |
+| `2`       | invalid CLI options, invalid configuration, or IO errors |
+| `101`     | internal error                                           |
+
+## Modifying exit behavior
+
+ty supports two command line arguments that change how exit codes work:
+
+### `--exit-zero`
+
+ty will exit with `0` even if violations were found.
+
+This is useful in CI environments where you want to run ty for informational purposes but don't want it to fail the build.
+
+```bash
+ty check --exit-zero
+```
+
+### `--error-on-warning`
+
+ty will exit with `1` if it finds any violations with severity `warning` or higher.
+
+This is useful when you want to enforce a stricter policy and treat warnings as errors.
+
+```bash
+ty check --error-on-warning
+```
+
+## Examples
+
+### Successful check
+
+```bash
+$ ty check
+$ echo $?
+0
+```
+
+### Type errors found
+
+```bash
+$ ty check
+error: [invalid-assignment] Cannot assign `str` to `int`
+  |
+3 | x: int = "hello"
+  |          ^^^^^^^
+
+$ echo $?
+1
+```
+
+### Invalid configuration
+
+```bash
+$ ty check
+error: Failed to parse pyproject.toml: invalid TOML
+
+$ echo $?
+2
+```
+
+### Internal error
+
+```bash
+$ ty check
+error: Internal error: unexpected panic
+
+This is a bug in ty. Please report it at:
+https://github.com/astral-sh/ty/issues
+
+$ echo $?
+101
+```

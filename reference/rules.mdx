@@ -1,0 +1,1923 @@
+---
+title: Rules reference
+description: Complete reference of all ty type checking rules
+---
+
+ty enforces Python's type system through a comprehensive set of rules. Each rule detects a specific category of type error or potential issue in your code.
+
+## Understanding rules
+
+Each rule has:
+- A unique identifier (e.g., `invalid-assignment`)
+- A default severity level (`error`, `warn`, or `ignore`)
+- A description of what it checks
+- Examples of problematic code
+
+You can configure individual rules in your `pyproject.toml`. See the [configuration guide](/guides/configuration) for details.
+
+## Rule categories
+
+Rules are organized by the type of issue they detect:
+
+- **Type errors**: Core type system violations
+- **Class and inheritance**: Issues with class definitions and inheritance
+- **Functions and callables**: Problems with function signatures and calls
+- **Dataclasses**: Dataclass-specific validation
+- **Annotations**: Issues with type annotations
+- **Type constructs**: Problems with type aliases, generics, and protocols
+- **Code quality**: Best practices and potential bugs
+
+## All rules
+
+<Accordion title="abstract-method-in-final-class">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `@final` classes that have unimplemented abstract methods.
+
+**Why is this bad?**
+
+A class decorated with `@final` cannot be subclassed. If such a class has abstract methods that are not implemented, the class can never be properly instantiated, as the abstract methods can never be implemented (since subclassing is prohibited).
+
+**Example**
+
+```python
+from abc import ABC, abstractmethod
+from typing import final
+
+class Base(ABC):
+    @abstractmethod
+    def method(self) -> int: ...
+
+@final
+class Derived(Base):  # Error: `Derived` does not implement `method`
+    pass
+```
+
+</Accordion>
+
+<Accordion title="ambiguous-protocol-member">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for protocol classes with members that will lead to ambiguous interfaces.
+
+**Why is this bad?**
+
+Assigning to an undeclared variable in a protocol class leads to an ambiguous interface which may lead to the type checker inferring unexpected things. It's recommended to ensure that all members of a protocol class are explicitly declared.
+
+**Example**
+
+```python
+from typing import Protocol
+
+class BaseProto(Protocol):
+    a: int                               # fine (explicitly declared as `int`)
+    def method_member(self) -> int: ...  # fine: a method definition using `def` is considered a declaration
+    c = "some variable"                  # error: no explicit declaration, leading to ambiguity
+    b = method_member                    # error: no explicit declaration, leading to ambiguity
+```
+
+</Accordion>
+
+<Accordion title="assert-type-unspellable-subtype">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `assert_type()` calls where the actual type is an unspellable subtype of the asserted type.
+
+**Why is this bad?**
+
+`assert_type()` is intended to ensure that the inferred type of a value is exactly the same as the asserted type. But in some situations, ty has nonstandard extensions to the type system that allow it to infer more precise types than can be expressed in user annotations.
+
+**Example**
+
+```python
+def _(x: int):
+    assert_type(x, int)  # fine
+    if x:
+        assert_type(x, int)  # error: [assert-type-unspellable-subtype]
+                             # the actual type is `int & ~AlwaysFalsy`,
+                             # which excludes types like `Literal[0]`
+```
+
+</Accordion>
+
+<Accordion title="byte-string-type-annotation">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for byte-strings in type annotation positions.
+
+**Why is this bad?**
+
+Static analysis tools like ty can't analyze type annotations that use byte-string notation.
+
+**Example**
+
+```python
+def test(): -> b"int":
+    ...
+```
+
+</Accordion>
+
+<Accordion title="call-abstract-method">
+
+**Default level**: `error` (Preview)
+
+**What it does**
+
+Checks for calls to abstract `@classmethod`s or `@staticmethod`s with "trivial bodies" when accessed on the class object itself.
+
+**Why is this bad?**
+
+An abstract method with a trivial body has no concrete implementation to execute, so calling such a method directly on the class will probably not have the desired effect.
+
+**Example**
+
+```python
+from abc import ABC, abstractmethod
+
+class Foo(ABC):
+    @classmethod
+    @abstractmethod
+    def method(cls) -> int: ...
+
+Foo.method()  # Error: cannot call abstract classmethod
+```
+
+</Accordion>
+
+<Accordion title="call-non-callable">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for calls to non-callable objects.
+
+**Why is this bad?**
+
+Calling a non-callable object will raise a `TypeError` at runtime.
+
+**Example**
+
+```python
+4()  # TypeError: 'int' object is not callable
+```
+
+</Accordion>
+
+<Accordion title="call-top-callable">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for calls to objects typed as `Top[Callable[..., T]]` (the infinite union of all callable types with return type `T`).
+
+**Why is this bad?**
+
+When an object is narrowed to `Top[Callable[..., object]]`, we know the object is callable, but we don't know its precise signature. No specific set of arguments can be guaranteed to be valid.
+
+**Example**
+
+```python
+def f(x: object):
+    if callable(x):
+        x()  # error: We know `x` is callable, but not what arguments it accepts
+```
+
+</Accordion>
+
+<Accordion title="conflicting-argument-forms">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks whether an argument is used as both a value and a type form in a call.
+
+**Why is this bad?**
+
+Such calls have confusing semantics and often indicate a logic error.
+
+**Example**
+
+```python
+from typing import reveal_type
+from ty_extensions import is_singleton
+
+if flag:
+    f = repr  # Expects a value
+else:
+    f = is_singleton  # Expects a type form
+
+f(int)  # error
+```
+
+</Accordion>
+
+<Accordion title="conflicting-declarations">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks whether a variable has been declared as two conflicting types.
+
+**Why is this bad**
+
+A variable with two conflicting declarations likely indicates a mistake. Moreover, it could lead to incorrect or ill-defined type inference for other code that relies on these variables.
+
+**Example**
+
+```python
+if b:
+    a: int
+else:
+    a: str
+
+a = 1
+```
+
+</Accordion>
+
+<Accordion title="conflicting-metaclass">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for class definitions where the metaclass of the class being created would not be a subclass of the metaclasses of all the class's bases.
+
+**Why is it bad?**
+
+Such a class definition raises a `TypeError` at runtime.
+
+**Example**
+
+```python
+class M1(type): ...
+class M2(type): ...
+class A(metaclass=M1): ...
+class B(metaclass=M2): ...
+
+# TypeError: metaclass conflict
+class C(A, B): ...
+```
+
+</Accordion>
+
+<Accordion title="cyclic-class-definition">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for class definitions in stub files that inherit (directly or indirectly) from themselves.
+
+**Why is it bad?**
+
+Although forward references are natively supported in stub files, inheritance cycles are still disallowed, as it is impossible to resolve a consistent method resolution order for a class that inherits from itself.
+
+**Example**
+
+```python
+# foo.pyi
+class A(B): ...
+class B(A): ...
+```
+
+</Accordion>
+
+<Accordion title="cyclic-type-alias-definition">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for type alias definitions that (directly or mutually) refer to themselves.
+
+**Why is it bad?**
+
+Although it is permitted to define a recursive type alias, it is not meaningful to have a type alias whose expansion can only result in itself, and is therefore not allowed.
+
+**Example**
+
+```python
+type Itself = Itself
+
+type A = B
+type B = A
+```
+
+</Accordion>
+
+<Accordion title="dataclass-field-order">
+
+**Default level**: `error` (Preview)
+
+**What it does**
+
+Checks for dataclass definitions where required fields are defined after fields with default values.
+
+**Why is this bad?**
+
+In dataclasses, all required fields (fields without default values) must be defined before fields with default values. This is a Python requirement that will raise a `TypeError` at runtime if violated.
+
+**Example**
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class Example:
+    x: int = 1    # Field with default value
+    y: str        # Error: Required field after field with default
+```
+
+</Accordion>
+
+<Accordion title="deprecated">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for uses of deprecated items.
+
+**Why is this bad?**
+
+Deprecated items should no longer be used.
+
+**Example**
+
+```python
+@warnings.deprecated("use new_func instead")
+def old_func(): ...
+
+old_func()  # emits [deprecated] diagnostic
+```
+
+</Accordion>
+
+<Accordion title="division-by-zero">
+
+**Default level**: `ignore`
+
+**What it does**
+
+It detects division by zero.
+
+**Why is this bad?**
+
+Dividing by zero raises a `ZeroDivisionError` at runtime.
+
+**Rule status**
+
+This rule is currently disabled by default because of the number of false positives it can produce.
+
+**Example**
+
+```python
+5 / 0
+```
+
+</Accordion>
+
+<Accordion title="duplicate-base">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for class definitions with duplicate bases.
+
+**Why is this bad?**
+
+Class definitions with duplicate bases raise `TypeError` at runtime.
+
+**Example**
+
+```python
+class A: ...
+
+# TypeError: duplicate base class
+class B(A, A): ...
+```
+
+</Accordion>
+
+<Accordion title="duplicate-kw-only">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for dataclass definitions with more than one field annotated with `KW_ONLY`.
+
+**Why is this bad?**
+
+`dataclasses.KW_ONLY` is a special marker used to emulate the `*` syntax in normal signatures. It can only be used once per dataclass.
+
+**Example**
+
+```python
+from dataclasses import dataclass, KW_ONLY
+
+@dataclass
+class A:  # Crash at runtime
+    b: int
+    _1: KW_ONLY
+    c: str
+    _2: KW_ONLY
+    d: bytes
+```
+
+</Accordion>
+
+<Accordion title="empty-body">
+
+**Default level**: `error`
+
+**What it does**
+
+Detects functions with empty bodies that have a non-`None` return type annotation.
+
+**Why is this bad?**
+
+A function with an empty body (containing only `...`, `pass`, or a docstring) will implicitly return `None` at runtime. Returning `None` when the return type is non-`None` is unsound, and will lead to ty inferring incorrect types elsewhere.
+
+**Example**
+
+```python
+def foo() -> int: ...  # error: [empty-body]
+
+def bar() -> str:
+    """A function that does nothing."""
+    pass  # error: [empty-body]
+```
+
+</Accordion>
+
+<Accordion title="escape-character-in-forward-annotation">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for forward annotations that contain escape characters.
+
+**Why is this bad?**
+
+Static analysis tools like ty can't analyze type annotations that contain escape characters.
+
+**Example**
+
+```python
+def foo() -> "intt\b": ...
+```
+
+</Accordion>
+
+<Accordion title="final-on-non-method">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `@final` decorators applied to non-method functions.
+
+**Why is this bad?**
+
+The `@final` decorator is only meaningful on methods and classes. Applying it to a module-level function or a nested function has no effect and is likely a mistake.
+
+**Example**
+
+```python
+from typing import final
+
+# Error: @final is not allowed on non-method functions
+@final
+def my_function() -> int:
+    return 0
+```
+
+</Accordion>
+
+<Accordion title="final-without-value">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `Final` symbols that are declared without a value and are never assigned a value in their scope.
+
+**Why is this bad?**
+
+A `Final` symbol must be initialized with a value at the time of declaration or in a subsequent assignment.
+
+**Example**
+
+```python
+from typing import Final
+
+# Error: `Final` symbol without a value
+MY_CONSTANT: Final[int]
+
+# OK: `Final` symbol with a value
+MY_CONSTANT: Final[int] = 1
+```
+
+</Accordion>
+
+<Accordion title="fstring-type-annotation">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for f-strings in type annotation positions.
+
+**Why is this bad?**
+
+Type annotations must be static strings that can be evaluated, not f-strings with runtime values.
+
+</Accordion>
+
+<Accordion title="ignore-comment-unknown-rule">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for `ty: ignore` comments that reference unknown rule names.
+
+**Why is this bad?**
+
+A typo in a rule name means the ignore comment won't have the intended effect.
+
+</Accordion>
+
+<Accordion title="implicit-concatenated-string-type-annotation">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for implicitly concatenated strings in type annotations.
+
+**Why is this bad?**
+
+Implicit string concatenation in type annotations is confusing and likely unintentional.
+
+</Accordion>
+
+<Accordion title="inconsistent-mro">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for class definitions with an inconsistent method resolution order (MRO).
+
+**Why is this bad?**
+
+Python requires a consistent MRO. An inconsistent MRO will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="index-out-of-bounds">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for index access that is statically known to be out of bounds.
+
+**Why is this bad?**
+
+Out of bounds access will raise an `IndexError` at runtime.
+
+</Accordion>
+
+<Accordion title="ineffective-final">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `Final` annotations that have no effect.
+
+**Why is this bad?**
+
+`Final` is only meaningful in certain contexts. Using it incorrectly suggests a misunderstanding.
+
+</Accordion>
+
+<Accordion title="instance-layout-conflict">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for classes that inherit from multiple base classes with conflicting instance layouts.
+
+**Why is this bad?**
+
+Classes with conflicting layouts cannot be instantiated and will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="invalid-argument-type">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for function calls where an argument's type doesn't match the parameter's type.
+
+**Why is this bad?**
+
+Passing arguments of the wrong type violates the function's contract and may cause runtime errors.
+
+**Example**
+
+```python
+def greet(name: str) -> None:
+    print(f"Hello, {name}!")
+
+greet(42)  # error: expected str, got int
+```
+
+</Accordion>
+
+<Accordion title="invalid-assignment">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for assignments where the type of the value is not assignable to the type of the assignee.
+
+**Why is this bad?**
+
+Such assignments break the rules of the type system and weaken a type checker's ability to accurately reason about your code.
+
+**Example**
+
+```python
+a: int = ''  # error: cannot assign str to int
+```
+
+</Accordion>
+
+<Accordion title="invalid-attribute-access">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for assignments to class variables from instances and assignments to instance variables from its class.
+
+**Why is this bad?**
+
+Incorrect assignments break the rules of the type system and weaken a type checker's ability to accurately reason about your code.
+
+**Example**
+
+```python
+class C:
+    class_var: ClassVar[int] = 1
+    instance_var: int
+
+C.class_var = 3  # okay
+C().class_var = 3  # error: Cannot assign to class variable
+
+C().instance_var = 3  # okay
+C.instance_var = 3  # error: Cannot assign to instance variable
+```
+
+</Accordion>
+
+<Accordion title="invalid-await">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `await` being used with types that are not Awaitable.
+
+**Why is this bad?**
+
+Such expressions will lead to `TypeError` being raised at runtime.
+
+**Example**
+
+```python
+import asyncio
+
+async def main() -> None:
+    await 42  # error: [invalid-await]
+
+asyncio.run(main())
+```
+
+</Accordion>
+
+<Accordion title="invalid-base">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for class definitions that have bases which are not instances of `type`.
+
+**Why is this bad?**
+
+Class definitions with bases like this will lead to `TypeError` being raised at runtime.
+
+**Example**
+
+```python
+class A(42): ...  # error: [invalid-base]
+```
+
+</Accordion>
+
+<Accordion title="invalid-context-manager">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for expressions used in `with` statements that do not implement the context manager protocol.
+
+**Why is this bad?**
+
+Such a statement will raise `TypeError` at runtime.
+
+**Example**
+
+```python
+# TypeError: 'int' object does not support the context manager protocol
+with 1:
+    print(2)
+```
+
+</Accordion>
+
+<Accordion title="invalid-dataclass">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid applications of the `@dataclass` decorator.
+
+**Why is this bad?**
+
+Applying `@dataclass` to a class that inherits from `NamedTuple`, `TypedDict`, `Enum`, or `Protocol` is invalid and will raise errors at runtime or produce unexpected behavior.
+
+**Example**
+
+```python
+from dataclasses import dataclass
+from typing import NamedTuple
+
+@dataclass  # error: [invalid-dataclass]
+class Foo(NamedTuple):
+    x: int
+```
+
+</Accordion>
+
+<Accordion title="invalid-dataclass-override">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for dataclass definitions that have both `frozen=True` and a custom `__setattr__` or `__delattr__` method defined.
+
+**Why is this bad?**
+
+This combination is invalid and will raise errors at runtime.
+
+</Accordion>
+
+<Accordion title="invalid-declaration">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid type declarations.
+
+**Why is this bad?**
+
+Invalid declarations prevent the type checker from understanding your code correctly.
+
+</Accordion>
+
+<Accordion title="invalid-exception-caught">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `except` clauses that catch non-exception types.
+
+**Why is this bad?**
+
+Only `BaseException` subclasses can be caught. Attempting to catch other types will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="invalid-explicit-override">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for methods decorated with `@override` that don't actually override anything.
+
+**Why is this bad?**
+
+The `@override` decorator is meant to explicitly mark methods that override base class methods. Using it on methods that don't override anything suggests a mistake.
+
+</Accordion>
+
+<Accordion title="invalid-frozen-dataclass-subclass">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for non-frozen dataclasses that inherit from frozen dataclasses.
+
+**Why is this bad?**
+
+This violates the Liskov substitution principle and can lead to unexpected behavior.
+
+</Accordion>
+
+<Accordion title="invalid-generic-class">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid uses of generic classes.
+
+**Why is this bad?**
+
+Improper use of generics can lead to type errors and runtime issues.
+
+</Accordion>
+
+<Accordion title="invalid-generic-enum">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for enum classes that are incorrectly defined as generic.
+
+**Why is this bad?**
+
+Enums cannot be generic in Python.
+
+</Accordion>
+
+<Accordion title="invalid-ignore-comment">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for malformed `ty: ignore` comments.
+
+**Why is this bad?**
+
+Malformed ignore comments won't have the intended effect.
+
+</Accordion>
+
+<Accordion title="invalid-key">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for dictionary or set operations with invalid key types.
+
+**Why is this bad?**
+
+Using unhashable types as keys will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="invalid-legacy-positional-parameter">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid use of positional parameters in legacy type comments.
+
+**Why is this bad?**
+
+Incorrect syntax in type comments prevents proper type checking.
+
+</Accordion>
+
+<Accordion title="invalid-legacy-type-variable">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid uses of `TypeVar` in legacy contexts.
+
+**Why is this bad?**
+
+Improper use of type variables can lead to confusing or incorrect type inference.
+
+</Accordion>
+
+<Accordion title="invalid-match-pattern">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid patterns in `match` statements.
+
+**Why is this bad?**
+
+Invalid patterns will raise errors at runtime.
+
+</Accordion>
+
+<Accordion title="invalid-metaclass">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid metaclass specifications.
+
+**Why is this bad?**
+
+An invalid metaclass will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="invalid-method-override">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for method overrides that are incompatible with the base class method signature.
+
+**Why is this bad?**
+
+Incompatible overrides violate the Liskov substitution principle and can lead to runtime errors.
+
+</Accordion>
+
+<Accordion title="invalid-named-tuple">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid `NamedTuple` definitions.
+
+**Why is this bad?**
+
+Invalid `NamedTuple` definitions will raise errors at runtime or produce unexpected behavior.
+
+</Accordion>
+
+<Accordion title="invalid-newtype">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid uses of `NewType`.
+
+**Why is this bad?**
+
+`NewType` has specific requirements that must be followed for correct behavior.
+
+</Accordion>
+
+<Accordion title="invalid-overload">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid function overload definitions.
+
+**Why is this bad?**
+
+Invalid overloads can lead to incorrect type inference and unexpected behavior.
+
+</Accordion>
+
+<Accordion title="invalid-parameter-default">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for parameter default values that don't match the parameter's type annotation.
+
+**Why is this bad?**
+
+An incompatible default value violates the parameter's type contract.
+
+</Accordion>
+
+<Accordion title="invalid-paramspec">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid uses of `ParamSpec`.
+
+**Why is this bad?**
+
+`ParamSpec` has specific usage requirements that must be followed.
+
+</Accordion>
+
+<Accordion title="invalid-protocol">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for protocol classes that will raise `TypeError` at runtime.
+
+**Why is this bad?**
+
+An invalidly defined protocol class may lead to the type checker inferring unexpected things. It may also lead to `TypeError`s at runtime.
+
+</Accordion>
+
+<Accordion title="invalid-raise">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `raise` statements that raise non-exceptions or use invalid causes for their raised exceptions.
+
+**Why is this bad?**
+
+Only subclasses or instances of `BaseException` can be raised. Violating these rules results in a `TypeError` at runtime.
+
+**Example**
+
+```python
+def f():
+    try:
+        something()
+    except NameError:
+        raise "oops!" from f  # error: cannot raise str
+```
+
+</Accordion>
+
+<Accordion title="invalid-return-type">
+
+**Default level**: `error`
+
+**What it does**
+
+Detects returned values that can't be assigned to the function's annotated return type.
+
+**Why is this bad?**
+
+Returning an object of a type incompatible with the annotated return type is unsound, and will lead to ty inferring incorrect types elsewhere.
+
+**Example**
+
+```python
+def func() -> int:
+    return "a"  # error: [invalid-return-type]
+```
+
+</Accordion>
+
+<Accordion title="invalid-super-argument">
+
+**Default level**: `error`
+
+**What it does**
+
+Detects `super()` calls where the arguments don't satisfy the required relationships.
+
+**Why is this bad?**
+
+Invalid `super()` calls will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="invalid-syntax-in-forward-annotation">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for string-literal annotations where the string cannot be parsed as a Python expression.
+
+**Why is this bad?**
+
+Type annotations must be valid Python expressions.
+
+</Accordion>
+
+<Accordion title="invalid-total-ordering">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid uses of `@functools.total_ordering`.
+
+**Why is this bad?**
+
+The decorator requires specific comparison methods to be defined.
+
+</Accordion>
+
+<Accordion title="invalid-type-alias-type">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid type alias definitions.
+
+**Why is this bad?**
+
+Type aliases must follow specific syntax and semantic rules.
+
+</Accordion>
+
+<Accordion title="invalid-type-arguments">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for incorrect type arguments provided to generic types.
+
+**Why is this bad?**
+
+Incorrect type arguments lead to invalid types and incorrect inference.
+
+</Accordion>
+
+<Accordion title="invalid-type-checking-constant">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid values assigned to `TYPE_CHECKING`.
+
+**Why is this bad?**
+
+`TYPE_CHECKING` should only be imported from `typing` and used as a constant.
+
+</Accordion>
+
+<Accordion title="invalid-type-form">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for expressions used as types that are not valid type forms.
+
+**Why is this bad?**
+
+Only certain expressions can be used as types in annotations.
+
+</Accordion>
+
+<Accordion title="invalid-type-guard-call">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid calls to type guard functions.
+
+**Why is this bad?**
+
+Type guards have specific calling requirements.
+
+</Accordion>
+
+<Accordion title="invalid-type-guard-definition">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid type guard function definitions.
+
+**Why is this bad?**
+
+Type guards must follow specific patterns to work correctly.
+
+</Accordion>
+
+<Accordion title="invalid-type-variable-bound">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid bounds on type variables.
+
+**Why is this bad?**
+
+Type variable bounds must be valid types.
+
+</Accordion>
+
+<Accordion title="invalid-type-variable-constraints">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid constraints on type variables.
+
+**Why is this bad?**
+
+Type variable constraints must follow specific rules.
+
+</Accordion>
+
+<Accordion title="invalid-type-variable-default">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid default values for type variables.
+
+**Why is this bad?**
+
+Default values must be compatible with the type variable's constraints.
+
+</Accordion>
+
+<Accordion title="invalid-typed-dict-header">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid `TypedDict` class headers.
+
+**Why is this bad?**
+
+`TypedDict` definitions must follow specific syntax.
+
+</Accordion>
+
+<Accordion title="invalid-typed-dict-statement">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid statements in `TypedDict` class bodies.
+
+**Why is this bad?**
+
+`TypedDict` classes can only contain field definitions.
+
+</Accordion>
+
+<Accordion title="isinstance-against-protocol">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `isinstance` checks against protocol classes.
+
+**Why is this bad?**
+
+Protocols are structural types and most cannot be used with `isinstance` at runtime.
+
+</Accordion>
+
+<Accordion title="isinstance-against-typed-dict">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `isinstance` checks against `TypedDict` classes.
+
+**Why is this bad?**
+
+`TypedDict` classes cannot be used with `isinstance` at runtime.
+
+</Accordion>
+
+<Accordion title="missing-argument">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for function calls that are missing required arguments.
+
+**Why is this bad?**
+
+Calling a function without required arguments will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="missing-typed-dict-key">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `TypedDict` literals that are missing required keys.
+
+**Why is this bad?**
+
+A `TypedDict` with missing required keys violates its type contract.
+
+</Accordion>
+
+<Accordion title="no-matching-overload">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for calls to overloaded functions where no overload matches the provided arguments.
+
+**Why is this bad?**
+
+If no overload matches, the function call may fail at runtime or behave unexpectedly.
+
+</Accordion>
+
+<Accordion title="not-iterable">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for iteration over non-iterable objects.
+
+**Why is this bad?**
+
+Attempting to iterate over a non-iterable will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="not-subscriptable">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for subscript operations on non-subscriptable types.
+
+**Why is this bad?**
+
+Subscripting a non-subscriptable type will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="override-of-final-method">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for methods that override `@final` methods from base classes.
+
+**Why is this bad?**
+
+Methods marked as `@final` are not meant to be overridden.
+
+</Accordion>
+
+<Accordion title="override-of-final-variable">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for assignments that override `Final` variables from base classes.
+
+**Why is this bad?**
+
+Variables marked as `Final` are not meant to be overridden.
+
+</Accordion>
+
+<Accordion title="parameter-already-assigned">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for function parameters that are assigned to in the function body.
+
+**Why is this bad?**
+
+Reassigning parameters can be confusing and may indicate a logic error.
+
+</Accordion>
+
+<Accordion title="positional-only-parameter-as-kwarg">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for positional-only parameters being passed as keyword arguments.
+
+**Why is this bad?**
+
+Positional-only parameters cannot be passed by name. Attempting to do so will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="possibly-missing-attribute">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for attribute access that may fail because the attribute might not exist.
+
+**Why is this bad?**
+
+Accessing a missing attribute will raise an `AttributeError` at runtime.
+
+</Accordion>
+
+<Accordion title="possibly-missing-implicit-call">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for potential issues with implicit calls.
+
+**Why is this bad?**
+
+Implicit calls that fail can lead to runtime errors.
+
+</Accordion>
+
+<Accordion title="possibly-missing-import">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for imports that may not be available.
+
+**Why is this bad?**
+
+Missing imports will raise an `ImportError` at runtime.
+
+</Accordion>
+
+<Accordion title="possibly-unresolved-reference">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for references that may not be defined in all code paths.
+
+**Why is this bad?**
+
+Using undefined variables will raise a `NameError` at runtime.
+
+</Accordion>
+
+<Accordion title="raw-string-type-annotation">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for raw strings in type annotation positions.
+
+**Why is this bad?**
+
+Raw string literals are not valid type annotations.
+
+</Accordion>
+
+<Accordion title="redundant-cast">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for casts that have no effect.
+
+**Why is this bad?**
+
+Redundant casts add noise and may indicate a misunderstanding.
+
+</Accordion>
+
+<Accordion title="redundant-final-classvar">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for variables annotated with both `Final` and `ClassVar`.
+
+**Why is this bad?**
+
+`Final` already implies the variable is a class variable in most contexts, making `ClassVar` redundant.
+
+</Accordion>
+
+<Accordion title="shadowed-type-variable">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for type variables that shadow other type variables.
+
+**Why is this bad?**
+
+Shadowing type variables can lead to confusing and incorrect type inference.
+
+</Accordion>
+
+<Accordion title="static-assert-error">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `static_assert` calls that fail.
+
+**Why is this bad?**
+
+Failed static assertions indicate a type error or logic issue.
+
+</Accordion>
+
+<Accordion title="subclass-of-final-class">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for classes that inherit from `@final` classes.
+
+**Why is this bad?**
+
+Classes marked as `@final` cannot be subclassed.
+
+</Accordion>
+
+<Accordion title="super-call-in-named-tuple-method">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for invalid `super()` calls in `NamedTuple` methods.
+
+**Why is this bad?**
+
+`NamedTuple` has special restrictions on `super()` calls.
+
+</Accordion>
+
+<Accordion title="too-many-positional-arguments">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for function calls with too many positional arguments.
+
+**Why is this bad?**
+
+Providing too many arguments will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="type-assertion-failure">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `assert_type()` calls where the actual type doesn't match the expected type.
+
+**Why is this bad?**
+
+`assert_type()` is used to verify type inference. A failure indicates the type checker is inferring something different than expected.
+
+</Accordion>
+
+<Accordion title="unavailable-implicit-super-arguments">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for `super()` calls without arguments in contexts where they're not available.
+
+**Why is this bad?**
+
+Argument-less `super()` only works in specific contexts.
+
+</Accordion>
+
+<Accordion title="undefined-reveal">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for calls to `reveal_type()` or `reveal_locals()` with undefined names.
+
+**Why is this bad?**
+
+You can't reveal the type of something that doesn't exist.
+
+</Accordion>
+
+<Accordion title="unknown-argument">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for keyword arguments that don't match any parameter.
+
+**Why is this bad?**
+
+Unknown keyword arguments will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="unresolved-attribute">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for attribute access on objects that don't have that attribute.
+
+**Why is this bad?**
+
+Accessing a nonexistent attribute will raise an `AttributeError` at runtime.
+
+</Accordion>
+
+<Accordion title="unresolved-global">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for references to undefined global variables.
+
+**Why is this bad?**
+
+Using undefined variables will raise a `NameError` at runtime.
+
+</Accordion>
+
+<Accordion title="unresolved-import">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for imports that cannot be resolved.
+
+**Why is this bad?**
+
+Unresolved imports will raise an `ImportError` at runtime.
+
+</Accordion>
+
+<Accordion title="unresolved-reference">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for references to undefined names.
+
+**Why is this bad?**
+
+Using undefined names will raise a `NameError` at runtime.
+
+</Accordion>
+
+<Accordion title="unsupported-base">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for classes with unsupported base classes.
+
+**Why is this bad?**
+
+Using unsupported bases will raise errors at runtime or produce unexpected behavior.
+
+</Accordion>
+
+<Accordion title="unsupported-bool-conversion">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for boolean conversions on types that don't support them.
+
+**Why is this bad?**
+
+Invalid boolean conversions can raise errors or produce unexpected results.
+
+</Accordion>
+
+<Accordion title="unsupported-dynamic-base">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for classes with dynamically computed bases.
+
+**Why is this bad?**
+
+Dynamic bases cannot be type checked effectively.
+
+</Accordion>
+
+<Accordion title="unsupported-operator">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for operators being used with unsupported operand types.
+
+**Why is this bad?**
+
+Using operators with incompatible types will raise a `TypeError` at runtime.
+
+</Accordion>
+
+<Accordion title="unused-ignore-comment">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for `ty: ignore` directives that are no longer applicable.
+
+**Why is this bad?**
+
+A `ty: ignore` directive that no longer matches any diagnostic violations is likely included by mistake, and should be removed to avoid confusion.
+
+**Example**
+
+```python
+a = 20 / 2  # ty: ignore
+```
+
+</Accordion>
+
+<Accordion title="unused-type-ignore-comment">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for `type: ignore` directives that are no longer applicable.
+
+**Why is this bad?**
+
+A `type: ignore` directive that no longer matches any diagnostic violations is likely included by mistake, and should be removed to avoid confusion.
+
+**Example**
+
+```python
+a = 20 / 2  # type: ignore
+```
+
+</Accordion>
+
+<Accordion title="useless-overload-body">
+
+**Default level**: `warn`
+
+**What it does**
+
+Checks for various `@overload`-decorated functions that have non-stub bodies.
+
+**Why is this bad?**
+
+Functions decorated with `@overload` are ignored at runtime; they are overridden by the implementation function that follows the series of overloads. While it is not illegal to provide a body for an `@overload`-decorated function, it may indicate a misunderstanding of how the `@overload` decorator works.
+
+**Example**
+
+```python
+from typing import overload
+
+@overload
+def foo(x: int) -> int:
+    return x + 1  # will never be executed
+
+@overload
+def foo(x: str) -> str:
+    return "Oh no, got a string"  # will never be executed
+
+def foo(x: int | str) -> int | str:
+    raise Exception("unexpected type encountered")
+```
+
+</Accordion>
+
+<Accordion title="zero-stepsize-in-slice">
+
+**Default level**: `error`
+
+**What it does**
+
+Checks for step size 0 in slices.
+
+**Why is this bad?**
+
+A slice with a step size of zero will raise a `ValueError` at runtime.
+
+**Example**
+
+```python
+l = list(range(10))
+l[1:10:0]  # ValueError: slice step cannot be zero
+```
+
+</Accordion>
+
+## Configuring rules
+
+You can configure individual rules in your `pyproject.toml`:
+
+```toml
+[tool.ty]
+# Set global severity level
+level = "error"
+
+# Configure specific rules
+[tool.ty.rules]
+deprecated = "error"  # Treat deprecated warnings as errors
+division-by-zero = "error"  # Enable division by zero checks
+```
+
+See the [configuration reference](/reference/configuration) for more details.

@@ -1,0 +1,160 @@
+---
+title: ty server
+description: Start the ty language server for IDE integrations with code navigation, completions, and more
+---
+
+The `ty server` command starts the ty language server, which provides IDE features like code navigation, completions, diagnostics, and refactoring capabilities.
+
+## Usage
+
+```bash
+ty server
+```
+
+The language server communicates using the Language Server Protocol (LSP) over standard input/output.
+
+## Options
+
+<ParamField path="--help" type="boolean">
+  Print help information.
+  
+  Short flag: `-h`
+  
+  ```bash
+  ty server --help
+  ```
+</ParamField>
+
+## Features
+
+The ty language server provides:
+
+- **Diagnostics** - Real-time type checking with rich error messages
+- **Code navigation** - Go to definition, find references, and symbol search
+- **Completions** - Context-aware code completion suggestions
+- **Auto-import** - Automatic import suggestions and additions
+- **Hover information** - Type information and documentation on hover
+- **Inlay hints** - Inline type annotations and parameter hints
+- **Code actions** - Quick fixes and refactoring suggestions
+- **Fine-grained incrementality** - Fast updates when editing files
+
+## Editor integration
+
+Instead of running `ty server` directly, you typically configure your editor to start the language server automatically:
+
+<CodeGroup>
+
+```json VS Code (settings.json)
+{
+  "ty.path": "/path/to/ty"
+}
+```
+
+```lua Neovim (init.lua)
+require('lspconfig').ty.setup{
+  cmd = { "ty", "server" },
+  filetypes = { "python" },
+}
+```
+
+```python PyCharm (LSP configuration)
+# Install the ty plugin from the JetBrains marketplace
+# The plugin will automatically start the ty server
+```
+
+</CodeGroup>
+
+For detailed editor setup instructions, see the [editor integration guide](https://docs.astral.sh/ty/editors/).
+
+## Examples
+
+<CodeGroup>
+
+```bash Start the server
+# Start the language server (typically called by your editor)
+ty server
+```
+
+```bash Test connection
+# You can test the server using a LSP client
+# The server expects JSON-RPC messages on stdin
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | ty server
+```
+
+```bash Debug mode
+# Start the server with verbose logging
+# (Note: The server itself doesn't have verbose flags,
+# but your editor may provide debug logging options)
+ty server
+```
+
+</CodeGroup>
+
+## Communication protocol
+
+The ty language server implements the [Language Server Protocol (LSP)](https://microsoft.github.io/language-server-protocol/) specification. It communicates using JSON-RPC 2.0 messages over stdin/stdout.
+
+### Initialization
+
+When your editor starts the server, it sends an `initialize` request with client capabilities. The server responds with its capabilities:
+
+```json
+{
+  "capabilities": {
+    "textDocumentSync": 2,
+    "completionProvider": { "triggerCharacters": ["."] },
+    "hoverProvider": true,
+    "definitionProvider": true,
+    "referencesProvider": true,
+    "documentSymbolProvider": true,
+    "codeActionProvider": true,
+    "diagnosticProvider": {
+      "interFileDependencies": true,
+      "workspaceDiagnostics": false
+    }
+  }
+}
+```
+
+### Diagnostics
+
+The server provides diagnostics (type errors) automatically as you edit files. Diagnostics are sent using `textDocument/publishDiagnostics` notifications:
+
+```json
+{
+  "uri": "file:///path/to/file.py",
+  "diagnostics": [
+    {
+      "range": {
+        "start": { "line": 10, "character": 4 },
+        "end": { "line": 10, "character": 8 }
+      },
+      "severity": 1,
+      "message": "Incompatible types in assignment",
+      "source": "ty"
+    }
+  ]
+}
+```
+
+## Performance
+
+The ty language server is designed for maximum performance:
+
+- **Fine-grained incrementality** - Only reanalyzes affected code when you make changes
+- **Parallel analysis** - Uses multiple CPU cores to analyze files in parallel
+- **Efficient caching** - Caches analysis results to avoid redundant work
+- **Fast startup** - Starts analyzing your code within milliseconds
+
+Typically, the server provides diagnostics within 100-500ms for most edits, even in large codebases.
+
+## Troubleshooting
+
+If the language server isn't working as expected:
+
+1. Check that ty is installed and accessible in your PATH
+2. Verify your editor's LSP client configuration
+3. Look for error messages in your editor's LSP logs
+4. Ensure your Python environment is correctly configured
+
+For more help, see the [editor integration guide](https://docs.astral.sh/ty/editors/) or [open an issue](https://github.com/astral-sh/ty/issues).

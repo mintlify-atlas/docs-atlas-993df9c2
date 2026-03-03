@@ -1,0 +1,212 @@
+---
+title: Type system
+description: Advanced type system features including redeclarations, intersection types, and type narrowing
+---
+
+ty supports all typing features described in the [Python typing documentation](https://typing.python.org/en/latest/spec/index.html). This page highlights unique features that ty's type system provides.
+
+<Note>
+For a detailed overview of type system feature support, refer to the [type system features tracking issue](https://github.com/astral-sh/ty/issues/1889).
+</Note>
+
+## Redeclarations
+
+ty allows you to reuse the same symbol with a different type. This is useful when you need to transform a value while keeping the same variable name:
+
+```python
+def split_paths(paths: str) -> list[Path]:
+    paths: list[str] = paths.split(":")
+    return [Path(p) for p in paths]
+```
+
+The `paths` parameter starts as a `str`, then is redeclared as a `list[str]` after splitting.
+
+<Tip>
+Try this example in the [ty playground](https://play.ty.dev/80a74c95-a43e-4a3d-8c26-f88e879d7dcb).
+</Tip>
+
+## Intersection types
+
+ty has first-class support for intersection types. While a union type `A | B` means "*either* A *or* B", an intersection type `A & B` means "*both* A *and* B".
+
+### Type narrowing with intersections
+
+Type narrowing in ty is based on intersections. When you narrow a type, ty creates an intersection that preserves both the original type and the narrowed constraints:
+
+```python
+def output_as_json(obj: Serializable) -> str:
+    if isinstance(obj, Versioned):
+        reveal_type(obj)  # reveals: Serializable & Versioned
+
+        return str({
+            "data": obj.serialize_json(),
+            "version": obj.version
+        })
+    else:
+        return obj.serialize_json()
+```
+
+Inside the `if` block, `obj` has type `Serializable & Versioned`, so you can call methods from both types.
+
+<Tip>
+View the full example in the [playground](https://play.ty.dev/39241435-5e78-4ce9-817f-ce65be73a6ed).
+</Tip>
+
+### Intersections with gradual types
+
+Intersections can be built using gradual types like `Any` or `Unknown`. This is particularly useful when working with untyped third-party code:
+
+```python
+def print_content(data: bytes):
+    obj = untyped_library.deserialize(data)
+
+    if isinstance(obj, Iterable):
+        print(obj.description)
+        for part in obj:
+            print("*", part.description)
+    else:
+        print(obj.description)
+```
+
+After the `isinstance` check, `obj` has type `Unknown & Iterable`. This allows you to iterate over `obj` while still accessing attributes like `.description` from the original unknown type.
+
+<Tip>
+See this example in the [playground](https://play.ty.dev/8f98820e-7306-4d69-b572-56d69a92b90f).
+</Tip>
+
+### hasattr narrowing
+
+Intersection types are used in `hasattr` narrowing. ty intelligently handles different cases:
+
+```python
+class Person:
+    name: str
+
+class Animal:
+    species: str
+
+def greet(being: Person | Animal | None):
+    if hasattr(being, "name"):
+        # `being` is now: Person | (Animal & <Protocol with members 'name'>)
+        print(f"Hello, {being.name}!")
+    else:
+        print("Hello there!")
+```
+
+ty preserves `Person` since it has a `name` attribute, intersects `Animal` with a synthetic protocol to account for potential subclasses, and excludes `None` completely.
+
+<Info>
+If you want `Animal` excluded from the narrowed type, make it a `@final` class. This also allows ty to infer a more precise type for `being.name` (`str` instead of `object`).
+</Info>
+
+<Tip>
+Try this in the [playground](https://play.ty.dev/31f2c718-516a-4a85-80e0-2a4682b818f1).
+</Tip>
+
+### Using intersection types in annotations
+
+If ty is your only type checker, you can use intersection types directly in annotations:
+
+```python
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ty_extensions import Intersection
+
+    type SerializableVersioned = Intersection[Serializable, Versioned]
+
+def output_as_json(obj: SerializableVersioned) -> str:
+    ...
+```
+
+<Note>
+The `ty_extensions` module is only available at type-checking time and provides ty-specific extensions.
+</Note>
+
+## Top and bottom materializations
+
+Gradual types have special [materializations](https://typing.python.org/en/latest/spec/concepts.html#materialization). The top materialization represents the "largest" type a gradual type can materialize to.
+
+For example, when checking `isinstance(..., list)`, ty intersects with the top materialization of `list[Unknown]`:
+
+```python
+@final
+class Item: ...
+
+def process(items: Item | list[Item]):
+    if isinstance(items, list):
+        # reveals: list[Item]
+        reveal_type(items)
+```
+
+<Info>
+If you remove the `@final` decorator, the inferred type becomes `(Item & Top[list[Unknown]]) | list[Item]`, accounting for classes that inherit from both `Item` and `list`. To rule this out, perform the `isinstance` check against `Item` instead.
+</Info>
+
+## Reachability based on types
+
+ty's reachability analysis is based on type inference, not pattern matching. This allows ty to detect unreachable branches in many more situations.
+
+For example, code that needs to support multiple versions of a dependency can be type-checked correctly:
+
+```python
+import pydantic
+from pydantic import BaseModel
+
+PYDANTIC_V2 = pydantic.__version__.startswith("2.")
+
+class Person(BaseModel):
+    name: str
+
+def to_json(person: Person):
+    if PYDANTIC_V2:
+        return person.model_dump_json()  # no error with pydantic 1.x
+    else:
+        return person.json()
+```
+
+ty evaluates `pydantic.__version__.startswith("2.")` at type-checking time and only considers the corresponding branch reachable.
+
+<Tip>
+View this example in the [playground](https://play.ty.dev/34a227bb-93d5-405e-86c3-72f57ec5642e).
+</Tip>
+
+## Gradual guarantee
+
+ty avoids emitting false positive type errors in untyped code. The following code produces no errors:
+
+```python
+class RetryPolicy:
+    max_retries = None
+
+policy = RetryPolicy()
+policy.max_retries = 1
+```
+
+ty treats `max_retries` as having type `Unknown | None`, meaning the type is not fully known but `None` is definitely possible. This prevents false positives while still catching real errors.
+
+<Info>
+You can always opt into stricter checking by adding type annotations (like `int | None`). A stricter mode is also planned - follow [this issue](https://github.com/astral-sh/ty/issues/1240) for updates.
+</Info>
+
+## Fixpoint iteration
+
+When a symbol's type cyclically depends on itself, ty uses fixpoint iteration to infer the type:
+
+```python
+class LoopingCounter:
+    def __init__(self):
+        self.value = 0
+
+    def tick(self):
+        self.value = (self.value + 1) % 5
+
+# reveals: Unknown | Literal[0, 1, 2, 3, 4]
+reveal_type(LoopingCounter().value)
+```
+
+ty starts by assuming `self.value` is `Unknown | Literal[0]` and iterates until the type converges to `Unknown | Literal[0, 1, 2, 3, 4]`.
+
+<Note>
+Without the modulo operation, the union would grow indefinitely. In such cases, ty falls back to `int` after a certain number of iterations.
+</Note>

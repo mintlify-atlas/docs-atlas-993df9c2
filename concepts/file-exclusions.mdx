@@ -1,0 +1,180 @@
+---
+title: File exclusions
+description: Control which Python files are checked using include and exclude patterns
+---
+
+ty automatically discovers all Python files in your project. You can customize where ty searches using the `src.include` and `src.exclude` settings.
+
+## Basic configuration
+
+For example, to check all Python files in the `src` and `tests` directories except those in `src/generated`:
+
+```toml title="pyproject.toml"
+[tool.ty.src]
+include = ["src", "tests"]
+exclude = ["src/generated"]
+```
+
+<Note>
+The `include` and `exclude` settings work together - ty will check files that match the include patterns but not the exclude patterns.
+</Note>
+
+## Default exclusions
+
+By default, ty excludes a variety of commonly ignored directories, including:
+- `node_modules`
+- `.git`
+- `__pycache__`
+- `.venv` and `venv`
+- `build` and `dist`
+- And [more](https://github.com/astral-sh/ty/blob/main/docs/reference/configuration.md#exclude_1)
+
+### Including default-excluded directories
+
+To include a directory that's excluded by default, use a negative `exclude` with a leading `!`:
+
+```toml title="pyproject.toml"
+[tool.ty.src]
+# Remove `build` from the excluded directories
+exclude = ["!**/build/"]
+```
+
+<Tip>
+The `!` prefix negates the exclusion, effectively including the directory in ty's search.
+</Tip>
+
+## Ignore files
+
+By default, ty respects files listed in:
+- `.gitignore`
+- `.ignore`
+
+To disable this functionality:
+
+```toml title="pyproject.toml"
+[tool.ty.src]
+respect-ignore-files = false
+```
+
+<Info>
+Disabling ignore files can be useful in CI environments or when you want ty to check all files regardless of version control settings.
+</Info>
+
+## Explicit targets
+
+You can explicitly pass paths to ty as command-line arguments:
+
+```bash
+ty check src scripts/benchmark.py
+```
+
+<Note>
+Paths passed as positional arguments are included even if they would otherwise be ignored through `exclude` filters or an ignore file. This allows you to check specific files on demand.
+</Note>
+
+## Include and exclude syntax
+
+Both `include` and `exclude` support gitignore-like glob patterns:
+
+### Pattern syntax
+
+- `src/` - Matches a directory (including its contents) named `src`
+- `src` - Matches a file or directory (including its contents) named `src`
+- `*` - Matches any sequence of characters (except `/`)
+- `**` - Matches zero or more path components
+- `?` - Matches any single character except `/`
+- `[abc]` - Matches any character inside the brackets
+- `[0-9]` - Matches any character in the range
+
+### Pattern anchoring
+
+<Note>
+All patterns are anchored to the project root.
+</Note>
+
+The pattern `src` only matches `<project_root>/src`, not `<project_root>/test/src`.
+
+To match any directory named `src`, use a prefix pattern:
+
+```toml title="pyproject.toml"
+[tool.ty.src]
+include = ["**/src"]
+```
+
+<Info>
+A prefix include pattern like `**/src` can notably slow down Python file discovery, especially in large projects.
+</Info>
+
+### Pattern examples
+
+<CodeGroup>
+
+```toml Exclude generated files
+[tool.ty.src]
+exclude = ["**/generated/**"]
+```
+
+```toml Include specific directories
+[tool.ty.src]
+include = ["src", "tests", "scripts"]
+```
+
+```toml Exclude test fixtures
+[tool.ty.src]
+exclude = ["**/fixtures/**", "**/test_data/**"]
+```
+
+```toml Complex patterns
+[tool.ty.src]
+include = ["src/**/*.py"]
+exclude = [
+    "src/legacy/**",
+    "**/test_*.py",
+    "**/*_test.py"
+]
+```
+
+</CodeGroup>
+
+### Pattern restrictions
+
+<Note>
+The `**` pattern must form a single path component:
+- `./**a` - Invalid
+- `./b**/` - Invalid
+- `***` - Invalid (more than two consecutive `*`)
+</Note>
+
+All patterns use the reduced portable glob syntax from [PEP 639](https://peps.python.org/pep-0639/#add-license-FILES-key), with the addition that characters can be escaped with a backslash.
+
+## Excluding virtual environments
+
+In Python 3.13+, the `venv` module automatically adds a `.gitignore` file to the virtual environment root, so ty will not emit diagnostics for files in the environment.
+
+### For Python 3.12 and earlier
+
+If using an older Python version, ty may include diagnostics for virtual environment files. To resolve this:
+
+**Option 1**: Add a `.gitignore` to the virtual environment:
+
+```bash
+echo "*" > .venv/.gitignore
+```
+
+**Option 2**: Add the virtual environment to your project's `.gitignore` or `.ignore` file:
+
+```text title=".gitignore"
+.venv/
+venv/
+```
+
+**Option 3**: Explicitly exclude in configuration:
+
+```toml title="pyproject.toml"
+[tool.ty.src]
+exclude = [".venv/**"]
+```
+
+<Tip>
+Using `.gitignore` is the recommended approach as it also prevents version control systems from tracking virtual environment files.
+</Tip>

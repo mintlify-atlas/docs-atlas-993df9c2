@@ -1,0 +1,141 @@
+---
+title: Modules
+description: Module discovery and resolution for first-party and third-party Python code
+---
+
+ty automatically discovers Python modules in your project. This page explains how ty finds and resolves first-party and third-party modules.
+
+## First-party modules
+
+First-party modules are Python files that are part of your project source code.
+
+### Default discovery
+
+By default, ty searches for first-party modules in:
+- The project's root directory
+- The `src` directory, if present
+- The `python` directory, if present and not itself a package
+
+<Info>
+A `./python` folder is automatically added to the project root if it exists and does not contain an `__init__.py` or `__init__.pyi` file.
+</Info>
+
+### Custom project layouts
+
+If your project uses a different layout, configure the `environment.root` setting in your `pyproject.toml` or `ty.toml`.
+
+For example, if your project's code is in an `app/` directory:
+
+```text
+example-pkg
+├── README.md
+├── pyproject.toml
+└── app
+    └── example_pkg
+        └── __init__.py
+```
+
+Set `environment.root` in your `pyproject.toml`:
+
+```toml title="pyproject.toml"
+[tool.ty.environment]
+root = ["./app"]
+```
+
+<Note>
+The `root` setting accepts a list of paths, so you can specify multiple source directories if your project requires it.
+</Note>
+
+## Third-party modules
+
+Third-party modules are Python packages that are not part of your project or the standard library.
+
+### Common third-party packages
+
+Examples include:
+- `requests`
+- `numpy`
+- `django`
+- `pydantic`
+
+These are typically declared as dependencies in:
+- `pyproject.toml`
+- `requirements.txt`
+- Other dependency files
+
+### Dependency installation
+
+Third-party modules are usually installed using a package manager:
+- [uv](https://docs.astral.sh/uv/)
+- pip
+- Poetry
+- Other Python package managers
+
+<Tip>
+ty searches for third-party modules in the configured [Python environment](#python-environment).
+</Tip>
+
+## Python environment
+
+The Python environment is used for discovery of third-party modules.
+
+### Virtual environment discovery
+
+By default, ty attempts to discover a virtual environment automatically:
+
+1. **Check for active environment**: ty checks the `VIRTUAL_ENV` environment variable
+2. **Search for `.venv`**: If `VIRTUAL_ENV` is not set, ty searches for a `.venv` directory in the project root or working directory
+
+<Note>
+When using project management tools like uv or Poetry, the `run` command usually automatically activates the virtual environment, which will be detected by ty.
+</Note>
+
+### Examples
+
+<CodeGroup>
+
+```bash uv
+# The virtual environment is automatically activated
+uv run ty check
+```
+
+```bash Poetry
+# The virtual environment is automatically activated
+poetry run ty check
+```
+
+```bash Manual activation
+# Activate the virtual environment first
+source .venv/bin/activate
+ty check
+```
+
+</CodeGroup>
+
+### Explicit configuration
+
+The Python environment can be explicitly configured using:
+
+- The `environment.python` setting in configuration files
+- The `--python` command-line flag
+
+<Info>
+When setting the environment explicitly, non-virtual environments can also be provided (for example, system Python installations).
+</Info>
+
+### Example configuration
+
+```toml title="pyproject.toml"
+[tool.ty.environment]
+python = "/usr/bin/python3.12"
+```
+
+Or use the command-line flag:
+
+```bash
+ty check --python /usr/bin/python3.12
+```
+
+<Note>
+Explicit configuration is only necessary if ty cannot automatically discover your environment or if you need to use a specific Python installation.
+</Note>

@@ -1,0 +1,141 @@
+---
+title: Python version
+description: Configure the Python version for syntax validation and type checking
+---
+
+The Python version affects allowed syntax, type definitions of the standard library, and type definitions of modules that are conditional on the Python version.
+
+## Impact of Python version
+
+### Syntax features
+
+Syntactic features must be available in the configured Python version. For example, Python 3.10 introduced support for `match` statements:
+
+```python
+import sys
+
+# `invalid-syntax` error if `python-version` is set to 3.9 or lower:
+match "echo hello".split():
+    case ["echo", message]:
+        print(message)
+    case _:
+        print("unknown command")
+```
+
+<Note>
+Syntactic features always need to be available in the lowest supported Python version for your project.
+</Note>
+
+### Standard library symbols
+
+Symbols added in newer Python versions will cause errors unless used in version-conditional branches. For example, `sys.stdlib_module_names` was added in Python 3.10:
+
+```python
+import sys
+
+# `unresolved-attribute` error if `python-version` is set to 3.9 or lower:
+print(sys.stdlib_module_names)
+
+if sys.version_info >= (3, 10):
+    # ok, because the usage is guarded by a version check:
+    print(sys.stdlib_module_names)
+```
+
+<Tip>
+ty's reachability analysis understands version guards, so code in version-specific branches is only checked when appropriate.
+</Tip>
+
+## Default Python version
+
+ty determines the Python version automatically using the following priority:
+
+### 1. requires-python field
+
+By default, the lower bound of the project's [`requires-python`](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#python-requires) field from `pyproject.toml` is used:
+
+```toml title="pyproject.toml"
+[project]
+name = "my-project"
+requires-python = ">=3.10"
+```
+
+This ensures features and symbols only available in newer Python versions are not used, maintaining compatibility with your declared minimum version.
+
+### 2. Virtual environment
+
+If the `requires-python` field is not available but a virtual environment has been configured or detected, ty infers the Python version from the virtual environment's metadata.
+
+### 3. Latest stable version
+
+If neither of the above is available, ty falls back to the latest stable Python version supported by ty (currently 3.14).
+
+<Info>
+This fallback ensures ty can work out-of-the-box, but it's recommended to configure `requires-python` in your `pyproject.toml` for accurate type checking.
+</Info>
+
+## Explicit configuration
+
+You can explicitly specify the Python version using configuration or command-line flags.
+
+### Configuration file
+
+Set the `python-version` option in your configuration file:
+
+```toml title="pyproject.toml"
+[tool.ty]
+python-version = "3.10"
+```
+
+Or in a standalone `ty.toml`:
+
+```toml title="ty.toml"
+python-version = "3.10"
+```
+
+### Command-line flag
+
+Use the `--python-version` flag:
+
+```bash
+ty check --python-version 3.10
+```
+
+<Note>
+The command-line flag takes precedence over configuration files, which in turn take precedence over the automatic detection methods.
+</Note>
+
+## Version compatibility patterns
+
+### Supporting multiple versions
+
+When writing code that needs to support multiple Python versions, use version guards:
+
+```python
+import sys
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
+config = tomllib.loads(config_text)
+```
+
+### Feature detection
+
+You can also use feature detection with `hasattr`:
+
+```python
+import sys
+
+if hasattr(sys, "stdlib_module_names"):
+    # Safe to use sys.stdlib_module_names
+    print(sys.stdlib_module_names)
+else:
+    # Fallback for older Python versions
+    print("Feature not available")
+```
+
+<Tip>
+ty's type narrowing understands both version guards and `hasattr` checks, providing accurate type information in each branch.
+</Tip>

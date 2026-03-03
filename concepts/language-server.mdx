@@ -1,0 +1,197 @@
+---
+title: Language server
+description: Full-featured language server with completions, navigation, refactoring, and more
+---
+
+ty is a fully-featured [language server](https://microsoft.github.io/language-server-protocol/) for Python. This page describes the key features provided by ty's IDE integration.
+
+<Note>
+See the editor integration guide for instructions on how to set up ty with your editor.
+</Note>
+
+## Diagnostics
+
+![Inline diagnostics example](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/inline-diagnostics.png)
+
+ty reports type errors and other [diagnostics](/concepts/diagnostics) directly in your editor. Diagnostics are updated as you type, providing instant feedback.
+
+### Diagnostic modes
+
+Control how diagnostics are displayed using the `diagnosticMode` setting:
+
+- **Open files only**: Show diagnostics only for currently open files (faster for large projects)
+- **Entire workspace**: Show diagnostics for all files in your workspace (comprehensive checking)
+
+<Info>
+ty supports both "pull" and "push" diagnostic models. Most modern editors use the "pull" model for better performance, where diagnostics are fetched on demand rather than pushed after every change.
+</Info>
+
+## Code navigation
+
+![Find references example](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/find-references.png)
+
+ty powers several language server features for navigating Python codebases:
+
+### Go to definition
+
+Jump to where a symbol is defined. ty resolves imports, function calls, class references, and more.
+
+### Go to declaration
+
+Navigate to the declaration site of a symbol, which can differ from its definition (for example, in stub files).
+
+### Go to type definition
+
+Navigate to the type of a symbol. For example, when invoked on a variable `user: Person`, this takes you to the `Person` class definition.
+
+### Find all references
+
+Find every usage of a function, class, or variable across your entire workspace. This is useful for understanding how a symbol is used or for preparing refactoring work.
+
+### Document and workspace symbols
+
+View an outline of symbols in the current file, or search through symbols across your entire workspace for quick navigation.
+
+## Code completions
+
+![Code completion example](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/code-completion.png)
+
+ty provides intelligent code completions as you type, offering suggestions for:
+
+- Variables, functions, and classes in scope
+- Module names and imports
+- Attributes and methods on objects
+- Type annotations
+
+### Auto-imports
+
+For symbols that are not yet imported, ty suggests auto-import actions to add the necessary `import` statements automatically.
+
+<Tip>
+In the example above, accepting the completion for `subprocess.run` will automatically add `import subprocess` at the top of the file.
+</Tip>
+
+## Code actions and refactorings
+
+![Code action example](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/quick-fix.png)
+
+ty offers quick fixes and other code actions to help you resolve issues:
+
+### Add import
+
+Automatically add missing import statements for symbols used in your code.
+
+### Quick fixes
+
+Some diagnostics come with quick fix suggestions to resolve the issue. For example:
+- Remove unused suppression comments
+- Correct misspelled identifiers
+- Fix type annotation errors
+
+### Rename symbol
+
+Safely rename symbols across your entire codebase. ty ensures all references are updated correctly, including:
+- Variable and function names
+- Class names
+- Module names
+- Import statements
+
+### Selection range
+
+Expand or shrink the text selection in your editor based on ty's understanding of Python syntax. This makes it easy to select logical code blocks.
+
+## Contextual information
+
+![Inlay hints and hover information](https://raw.githubusercontent.com/astral-sh/ty/main/docs/features/screenshots/inlay-hints.png)
+
+ty surfaces useful contextual information as you code:
+
+### Hover
+
+Hover over any symbol to see:
+- Its type
+- Documentation and docstrings
+- Function signatures
+- The variance of type parameters
+- Other useful information
+
+### Inlay hints
+
+Display inline type hints for:
+- Variables and parameters without explicit annotations
+- Parameter names at call sites
+
+<Tip>
+Inlay hints can be double-clicked to insert the type annotations into your source code. You can also click on parts of the inlay hints for go-to-definition navigation.
+</Tip>
+
+### Signature help
+
+When calling a function, ty displays the function's parameters and their types. This appears automatically when you type `(` and updates as you navigate between arguments.
+
+### Document highlight
+
+When the cursor is on a symbol, ty highlights all occurrences of that symbol in the current file.
+
+### Semantic highlighting
+
+Syntax highlighting based on the underlying semantics and types, providing more accurate and meaningful color coding than traditional syntax-based highlighting.
+
+## Code folding
+
+ty provides Python-specific code folding ranges to LSP clients. This includes tagging docstrings as comments, which supports editor actions like "fold all comment blocks."
+
+## Notebook support
+
+ty supports Jupyter notebooks (`.ipynb` files) with full language server features. Each cell is analyzed in context, with diagnostics, completions, and other features working across cells.
+
+<Info>
+Type information flows between cells, so ty understands variables and imports defined in earlier cells when analyzing later ones.
+</Info>
+
+## Fine-grained incrementality
+
+ty's architecture is designed for low-latency updates of diagnostics and other language server features.
+
+When you make a change in your editor, ty incrementally updates only the affected parts of the codebase, rather than re-analyzing everything from scratch. This happens at a fine-grained level, down to individual definitions.
+
+<Note>
+This incrementality means you get instant feedback as you type (within a few milliseconds), even on large projects. Fine-grained dependencies also allow ty to skip large parts of third-party dependencies when they're not relevant to your codebase.
+</Note>
+
+## Feature reference
+
+The following table provides a comprehensive reference of ty's language server protocol (LSP) feature support:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `callHierarchy/*` | ❌ Not supported | [#1976](https://github.com/astral-sh/ty/issues/1976) |
+| `notebookDocument/*` | ✅ Supported | |
+| `textDocument/codeAction` | ✅ Supported | Quick fixes |
+| `textDocument/codeLens` | ❌ Not supported | |
+| `textDocument/completion` | ✅ Supported | |
+| `textDocument/declaration` | ✅ Supported | |
+| `textDocument/definition` | ✅ Supported | |
+| `textDocument/diagnostic` | ✅ Supported | |
+| `textDocument/documentColor` | ❌ Not supported | |
+| `textDocument/documentHighlight` | ✅ Supported | |
+| `textDocument/documentLink` | ❌ Not supported | |
+| `textDocument/documentSymbol` | ✅ Supported | |
+| `textDocument/foldingRange` | ✅ Supported | |
+| `textDocument/formatting` | — | Use [Ruff](https://docs.astral.sh/ruff/) for formatting |
+| `textDocument/hover` | ✅ Supported | |
+| `textDocument/implementation` | ❌ Not supported | |
+| `textDocument/inlayHint` | ✅ Supported | |
+| `textDocument/onTypeFormatting` | — | [Ruff #16829](https://github.com/astral-sh/ruff/issues/16829) |
+| `textDocument/prepareRename` | ✅ Supported | |
+| `textDocument/rangeFormatting` | — | Use [Ruff](https://docs.astral.sh/ruff/) for formatting |
+| `textDocument/references` | ✅ Supported | |
+| `textDocument/rename` | ✅ Supported | |
+| `textDocument/selectionRange` | ✅ Supported | |
+| `textDocument/semanticTokens` | ✅ Supported | |
+| `textDocument/signatureHelp` | ✅ Supported | |
+| `textDocument/typeDefinition` | ✅ Supported | |
+| `typeHierarchy/*` | ❌ Not supported | [#534](https://github.com/astral-sh/ty/issues/534) |
+| `workspace/diagnostic` | ✅ Supported | |
+| `workspace/symbol` | ✅ Supported | |
+| `workspace/willRenameFiles` | ❌ Not supported | [#1560](https://github.com/astral-sh/ty/issues/1560) |

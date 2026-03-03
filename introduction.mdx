@@ -1,0 +1,107 @@
+---
+title: Introduction
+description: ty is an extremely fast Python type checker and language server written in Rust, created by Astral.
+---
+
+An extremely fast Python type checker and language server, written in Rust.
+
+<p align="center">
+  <img alt="Shows a bar chart with benchmark results comparing ty to mypy and Pyright" width="500px" src="https://raw.githubusercontent.com/astral-sh/ty/main/docs/assets/ty-benchmark-cli.svg" />
+</p>
+
+<p align="center">
+  <i>Type checking the <a href="https://github.com/home-assistant/core">home-assistant</a> project without caching.</i>
+</p>
+
+ty is backed by [Astral](https://astral.sh), the creators of [uv](https://github.com/astral-sh/uv) and [Ruff](https://github.com/astral-sh/ruff).
+
+<Note>
+  ty is currently in beta and uses `0.0.x` versioning. Breaking changes, including changes to diagnostics, may occur between any two versions.
+</Note>
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Blazingly fast" icon="bolt">
+    10x - 100x faster than mypy and Pyright, with fine-grained incremental analysis for instant editor feedback
+  </Card>
+  
+  <Card title="Rich diagnostics" icon="message-exclamation">
+    Comprehensive diagnostics with rich contextual information to help you understand and fix type errors
+  </Card>
+  
+  <Card title="Language server" icon="code">
+    Built-in language server with code navigation, completions, code actions, auto-import, inlay hints, and more
+  </Card>
+  
+  <Card title="Designed for adoption" icon="chart-line">
+    Support for redeclarations and partially typed code makes it easy to adopt ty in existing projects
+  </Card>
+  
+  <Card title="Highly configurable" icon="sliders">
+    Configurable rule levels, per-file overrides, suppression comments, and first-class project support
+  </Card>
+  
+  <Card title="Advanced type system" icon="brain">
+    First-class intersection types, advanced type narrowing, and sophisticated reachability analysis
+  </Card>
+</CardGroup>
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Install ty using uvx, uv, pip, pipx, or the standalone installer
+  </Card>
+  
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get up and running with ty in minutes
+  </Card>
+</CardGroup>
+
+## Try it out
+
+Run ty instantly with [uvx](https://docs.astral.sh/uv/guides/tools/#running-tools) to get started quickly:
+
+```bash
+uvx ty check
+```
+
+Or try the [ty playground](https://play.ty.dev) to experiment with ty in your browser.
+
+<Tip>
+  The playground is a great way to share snippets with other people, especially when sharing a bug report.
+</Tip>
+
+## Editor integrations
+
+ty includes a powerful language server with support for:
+
+- Code navigation (go to definition, find references)
+- Intelligent completions
+- Code actions and quick fixes
+- Auto-import
+- Inlay hints
+- On-hover help
+
+Editor integrations are available for [VS Code](https://docs.astral.sh/ty/editors/#vs-code), [PyCharm](https://docs.astral.sh/ty/editors/#pycharm), [Neovim](https://docs.astral.sh/ty/editors/#neovim), and more.
+
+## Community
+
+<CardGroup cols={2}>
+  <Card title="GitHub" icon="github" href="https://github.com/astral-sh/ty">
+    Star the repo and report issues
+  </Card>
+  
+  <Card title="Discord" icon="discord" href="https://discord.com/invite/astral-sh">
+    Join the Astral community on Discord
+  </Card>
+</CardGroup>
